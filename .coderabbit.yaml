@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# ↑ VS Code 등에서 자동완성/검증을 켜주는 매직 주석. 동작에는 영향 없음.
+
+# 리뷰 코멘트 및 요약을 작성할 언어. 영어로 받고 싶으면 "en-US".
+language: "ko-KR"
+
+reviews:
+  # 리뷰 적극성 수준
+  #   - "chill"     : 버그/보안/로직 오류 위주 (노이즈 적음, 도입 초기 추천)
+  #   - "assertive" : 스타일/네이밍/문서/테스트까지 모두 지적 (노이즈 많음)
+  profile: "chill"
+
+  auto_review:
+    # 새 PR 또는 추가 커밋 푸시 시 자동 리뷰 시작
+    enabled: true
+    # Draft PR은 리뷰 스킵 (불필요한 토큰 소모 방지)
+    drafts: false
+
+  # PR 본문 상단에 변경 사항 요약을 자동으로 작성/갱신
+  high_level_summary: true
+
+  # CodeRabbit이 리뷰마다 토끼 시(poem)를 남기는 기능. 업무용은 보통 끔
+  poem: false
+
+  # "N개의 actionable comment 작성" 같은 상태 코멘트 표시 여부
+  review_status: true
+
+  # 리뷰에서 제외할 경로 (! 접두사가 "제외"라는 뜻)
+  # 락 파일, 빌드 산출물, 의존성 디렉터리, 바이너리 에셋, 자동 생성 파일은 리뷰 가치가 없으므로 제외
+  path_filters:
+    # 락 파일 / 워크스페이스 설정
+    - "!**/*.lock" # package-lock.json, yarn.lock, poetry.lock 등
+    - "!**/pnpm-lock.yaml" # pnpm 락 파일 (확장자가 .yaml이라 *.lock에 안 걸림)
+    - "!**/pnpm-workspace.yaml" # pnpm 워크스페이스 선언
+
+    # 빌드 산출물 / 의존성 / 캐시
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/node_modules/**"
+    - "!**/.next/**" # Next.js 빌드 산출물
+    - "!**/.vercel/**" # Vercel CLI 생성물
+    - "!**/coverage/**" # 테스트 커버리지 리포트
+    - "!**/*.tsbuildinfo" # TypeScript 빌드 캐시
+
+    # 자동 생성 파일
+    - "!**/next-env.d.ts" # Next.js 자동 생성 (수정 금지)
+
+    # 폰트 바이너리
+    - "!**/*.woff"
+    - "!**/*.woff2"
+    - "!**/*.ttf"
+    - "!**/*.otf"
+    - "!**/*.eot"
+
+    # 이미지 바이너리
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+    - "!**/*.webp"
+    - "!**/*.avif"
+    - "!**/*.ico"
+    - "!**/*.svg" # public/*.svg 등 정적 SVG 에셋
+
+    # 미디어 / 문서 바이너리
+    - "!**/*.mp4"
+    - "!**/*.webm"
+    - "!**/*.mp3"
+    - "!**/*.pdf"
+
+    # 미니파이 산출물
+    - "!**/*.min.js"
+    - "!**/*.min.css"
+
+    # OS / 에디터 메타
+    - "!**/.DS_Store"
+
+chat:
+  # PR 코멘트에서 @coderabbitai 멘션 시 자동 답변
+  auto_reply: true
