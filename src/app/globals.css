@@ -1,5 +1,126 @@
+/* 첫지음 — globals.css (Tailwind v4) */
+
 @import "tailwindcss";
 
-body {
-  font-family: var(--font-pretendard), -apple-system, system-ui, sans-serif;
+@theme {
+  /* ── 폰트 ── */
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
+
+  /* ── 컬러 ── */
+  --color-primary:      #7C6FCD;
+  --color-primary-light:#9B8FDB;
+  --color-primary-pale: #EAE7F8;
+  --color-primary-muted:#C4BEDB;
+
+  --color-ink:          #2D2540;
+  --color-ink-muted:    #8B849E;
+  --color-ink-light:    #C4BEDB;
+
+  --color-surface:         #FFFFFF;
+  --color-surface-section: #F5F3FA;
+  --color-bg:              #F9F7F9;
+  --color-divider:         #EEEBF8;
+
+  --color-danger:      #F04438;
+  --color-kakao:       #FEE500;
+  --color-accent-pink: #FF8FAB;
+
+  /* ── 최대 너비 ── */
+  --width-app: 600px;
+
+  /* ── 폰트 사이즈 ── */
+  --text-hero:          clamp(26px, 7.7vw, 32px);
+  --text-page-title:    24px;
+  --text-section-title: 16px;
+  --text-name-featured: clamp(28px, 8.5vw, 36px);
+  --text-name-side:     clamp(22px, 6.7vw, 28px);
+  --text-stat:          22px;
+  --text-body:          15px;
+  --text-btn:           16px;
+  --text-caption:       13px;
+  --text-tag:           12px;
+  --text-nav:           11px;
+
+  /* ── 보더 라디우스 ── */
+  --radius-xs:   6px;
+  --radius-sm:   10px;
+  --radius-md:   14px;
+  --radius-lg:   18px;
+  --radius-xl:   22px;
+  --radius-pill: 9999px;
+
+  /* ── 그림자 ── */
+  --shadow-card:          0px 2px 12px rgba(124, 111, 205, 0.08);
+  --shadow-card-md:       0px 4px 16px rgba(124, 111, 205, 0.12);
+  --shadow-card-featured: 0px 8px 32px rgba(124, 111, 205, 0.18);
+  --shadow-btn:           0px 4px 16px rgba(124, 111, 205, 0.35);
+  --shadow-nav-bottom:    0px -1px 12px rgba(0, 0, 0, 0.06);
+
+  /* ── 스페이싱 ── */
+  --spacing-section:    48px;
+  --spacing-nav-top:    52px;
+  --spacing-nav-bottom: 64px;
+}
+
+/* ── Base reset ── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-pretendard), var(--font-sans);
+    font-size: var(--text-body);
+    color: var(--color-ink);
+    background-color: var(--color-bg);
+    line-height: 1.6;
+    letter-spacing: -0.1px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img, svg { display: block; max-width: 100%; }
+  button { cursor: pointer; font-family: inherit; }
+  a { color: inherit; text-decoration: none; }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ── 앱 컨테이너 ── */
+@layer components {
+  .app-shell {
+    min-height: 100dvh;
+    background-color: var(--color-bg);
+    display: flex;
+    justify-content: center;
+  }
+
+  .app-container {
+    width: 100%;
+    max-width: var(--width-app);
+    min-height: 100dvh;
+    background-color: var(--color-bg);
+    position: relative;
+  }
+
+  .page-content {
+    padding: var(--spacing-nav-top) 20px var(--spacing-nav-bottom);
+  }
 }
