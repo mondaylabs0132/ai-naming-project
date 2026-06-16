@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+body {
+  font-family: var(--font-pretendard), -apple-system, system-ui, sans-serif;
+}

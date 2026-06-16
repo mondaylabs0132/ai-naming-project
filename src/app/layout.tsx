@@ -10,8 +10,8 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "AI 작명소",
-  description: "AI 작명소",
+  title: "이름담다",
+  description: "AI와 전문가의 마음을 담아, 평생 부를 특별한 이름을 지어드려요.",
 };
 
 export default function RootLayout({
@@ -20,8 +20,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${pretendard.className} antialiased`}>
-      <body>{children}</body>
+    <html lang="ko" className={`${pretendard.variable} antialiased`}>
+      <body className="bg-gray-300">
+        <div className="max-w-[480px] mx-auto bg-[#F9F7F9] min-h-screen relative">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }
