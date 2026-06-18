@@ -31,8 +31,6 @@ const ANALYZING_TAGS = [
   { label: '선호도 데이터 반영', active: false },
 ];
 
-const cardShadow = { boxShadow: '0px 2px 12px rgba(124, 111, 205, 0.08)' };
-
 export default function PremiumGeneratingPage() {
   return (
     <div className="px-5 py-4 text-center">
@@ -44,15 +42,15 @@ export default function PremiumGeneratingPage() {
         className="mx-auto"
         style={{ width: '56px', height: '56px', objectFit: 'contain' }}
       />
-      <p className="mt-3 text-[13px] font-semibold text-[#7C6FCD]">
+      <p className="mt-3 text-caption font-semibold text-primary">
         결제가 완료되었어요!
       </p>
-      <h1 className="mt-2 text-[24px] font-extrabold leading-[1.35] tracking-[-0.4px]">
-        <span className="text-[#2D2540]">30개의 이름을</span>
+      <h1 className="mt-2 text-page-title font-extrabold leading-[1.35] tracking-[-0.4px]">
+        <span className="text-ink">30개의 이름을</span>
         <br />
-        <span className="text-[#7C6FCD]">정성껏 분석하고 있어요</span>
+        <span className="text-primary">정성껏 분석하고 있어요</span>
       </h1>
-      <p className="mt-3 text-[14px] text-[#8B849E] leading-[1.7]">
+      <p className="mt-3 text-[14px] text-ink-muted leading-[1.7]">
         AI와 전문가가 사주, 음양, 발음, 의미까지
         <br />
         꼼꼼하게 분석하여 최고의 이름을 찾아드릴게요.
@@ -60,27 +58,21 @@ export default function PremiumGeneratingPage() {
 
       {/* 일러스트 영역 */}
       <div className="relative my-8 flex justify-center">
-        <div
-          className="absolute left-0 top-2 bg-white rounded-[14px] flex items-center gap-1 px-3 py-2"
-          style={cardShadow}
-        >
+        <div className="absolute left-0 top-2 bg-surface rounded-md shadow-card flex items-center gap-1 px-3 py-2">
           <span className="text-[18px]">📊</span>
         </div>
-        <div
-          className="absolute right-0 top-2 bg-white rounded-[14px] flex items-center gap-1 px-3 py-2"
-          style={cardShadow}
-        >
+        <div className="absolute right-0 top-2 bg-surface rounded-md shadow-card flex items-center gap-1 px-3 py-2">
           <span className="text-[18px]">📈</span>
         </div>
         <div
-          className="absolute left-2 bottom-8 rounded-[14px] flex items-center justify-center font-bold text-[#7C6FCD]"
-          style={{ width: '44px', height: '44px', backgroundColor: '#EAE7F8' }}
+          className="absolute left-2 bottom-8 rounded-md bg-primary-pale flex items-center justify-center font-bold text-primary"
+          style={{ width: '44px', height: '44px' }}
         >
           한
         </div>
         <div
-          className="absolute right-2 bottom-8 rounded-[14px] flex items-center justify-center font-bold text-[#7C6FCD]"
-          style={{ width: '44px', height: '44px', backgroundColor: '#EAE7F8' }}
+          className="absolute right-2 bottom-8 rounded-md bg-primary-pale flex items-center justify-center font-bold text-primary"
+          style={{ width: '44px', height: '44px' }}
         >
           음
         </div>
@@ -108,43 +100,32 @@ export default function PremiumGeneratingPage() {
         />
       </div>
 
-      <p className="text-[14px] font-semibold text-[#2D2540]">
-        분석 진행 중...
-      </p>
+      <p className="text-[14px] font-semibold text-ink">분석 진행 중...</p>
 
       {/* 진행률 */}
       <div className="mt-3 flex items-center gap-3">
-        <div
-          className="flex-1 h-2 rounded-full overflow-hidden"
-          style={{ backgroundColor: '#EAE7F8' }}
-        >
+        <div className="flex-1 h-2 rounded-full bg-primary-pale overflow-hidden">
           <div
-            className="h-full rounded-full"
-            style={{
-              width: `${PROGRESS_PERCENT}%`,
-              backgroundColor: '#7C6FCD',
-            }}
+            className="h-full rounded-full bg-primary"
+            style={{ width: `${PROGRESS_PERCENT}%` }}
           />
         </div>
-        <span className="text-[15px] font-bold text-[#7C6FCD]">
+        <span className="text-body font-bold text-primary">
           {PROGRESS_PERCENT}%
         </span>
       </div>
-      <p className="mt-2 text-[13px] text-[#8B849E] leading-[1.6]">
+      <p className="mt-2 text-caption text-ink-muted leading-[1.6]">
         잠시만 기다려주세요. 더욱 정확한 결과를 위해 노력하고 있어요.
       </p>
 
       {/* 진행 단계 */}
-      <div
-        className="mt-6 bg-white rounded-[18px] p-5 text-left"
-        style={cardShadow}
-      >
+      <div className="mt-6 bg-surface rounded-lg shadow-card p-5 text-left">
         {STEPS.map((step, i) => (
           <div key={step.title} className="flex gap-3">
             <div className="flex flex-col items-center">
               {step.status === 'done' && (
                 <div
-                  className="rounded-full bg-[#7C6FCD] flex items-center justify-center text-white"
+                  className="rounded-full bg-primary flex items-center justify-center text-surface"
                   style={{ width: '24px', height: '24px', fontSize: '12px' }}
                 >
                   ✓
@@ -152,38 +133,37 @@ export default function PremiumGeneratingPage() {
               )}
               {step.status === 'active' && (
                 <div
-                  className="rounded-full border-2 border-[#7C6FCD] flex items-center justify-center"
+                  className="rounded-full border-2 border-primary flex items-center justify-center"
                   style={{ width: '24px', height: '24px' }}
                 >
                   <div
-                    className="rounded-full bg-[#7C6FCD]"
+                    className="rounded-full bg-primary"
                     style={{ width: '10px', height: '10px' }}
                   />
                 </div>
               )}
               {step.status === 'pending' && (
                 <div
-                  className="rounded-full border-2 border-[#EEEBF8]"
+                  className="rounded-full border-2 border-divider"
                   style={{ width: '24px', height: '24px' }}
                 />
               )}
               {i < STEPS.length - 1 && (
                 <div
-                  className="flex-1 border-l-2 border-dashed border-[#C4BEDB]"
+                  className="flex-1 border-l-2 border-dashed border-primary-muted"
                   style={{ width: 0, marginTop: '4px', marginBottom: '4px' }}
                 />
               )}
             </div>
             <div className={i < STEPS.length - 1 ? 'pb-5' : ''}>
               <p
-                className="text-[14px] font-semibold"
-                style={{
-                  color: step.status === 'active' ? '#7C6FCD' : '#2D2540',
-                }}
+                className={`text-[14px] font-semibold ${
+                  step.status === 'active' ? 'text-primary' : 'text-ink'
+                }`}
               >
                 {step.title}
               </p>
-              <p className="mt-0.5 text-[13px] text-[#8B849E] leading-[1.5]">
+              <p className="mt-0.5 text-caption text-ink-muted leading-normal">
                 {step.desc}
               </p>
             </div>
@@ -192,14 +172,11 @@ export default function PremiumGeneratingPage() {
       </div>
 
       {/* 안내 카드 */}
-      <div
-        className="mt-4 rounded-[18px] p-5 text-left"
-        style={{ backgroundColor: '#EAE7F8' }}
-      >
-        <p className="text-[14px] font-semibold text-[#7C6FCD] flex items-center gap-1.5">
+      <div className="mt-4 rounded-lg bg-primary-pale p-5 text-left">
+        <p className="text-[14px] font-semibold text-primary flex items-center gap-1.5">
           💡 잠깐! 더 좋은 결과를 위한 과정이에요
         </p>
-        <p className="mt-1.5 text-[13px] text-[#2D2540] leading-[1.6]">
+        <p className="mt-1.5 text-caption text-ink leading-[1.6]">
           정확하고 의미 있는 이름을 찾기 위해 다양한 요소를 종합적으로 분석하고
           있어요.
           <br />
@@ -208,32 +185,29 @@ export default function PremiumGeneratingPage() {
       </div>
 
       {/* 분석 요소 */}
-      <div
-        className="mt-4 bg-white rounded-[18px] p-5 text-left"
-        style={cardShadow}
-      >
+      <div className="mt-4 bg-surface rounded-lg shadow-card p-5 text-left">
         <div className="flex items-center justify-between flex-wrap gap-1.5">
-          <p className="text-[14px] font-semibold text-[#2D2540] flex items-center gap-1.5">
+          <p className="text-[14px] font-semibold text-ink flex items-center gap-1.5">
             📶 현재 분석 중인 요소
           </p>
-          <span className="text-[12px] text-[#8B849E]">
+          <span className="text-tag text-ink-muted">
             🔄 분석 요소 업데이트 중
           </span>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-caption">
           {ANALYZING_TAGS.map((tag, i) => (
             <span key={tag.label} className="flex items-center gap-2">
-              {i > 0 && <span className="text-[#C4BEDB]">·</span>}
+              {i > 0 && <span className="text-ink-light">·</span>}
               <span
-                className="flex items-center gap-1"
-                style={{
-                  color: tag.active ? '#7C6FCD' : '#8B849E',
-                  fontWeight: tag.active ? 600 : 400,
-                }}
+                className={`flex items-center gap-1 ${
+                  tag.active
+                    ? 'text-primary font-semibold'
+                    : 'text-ink-muted font-normal'
+                }`}
               >
                 {tag.active && (
                   <span
-                    className="rounded-full bg-[#7C6FCD]"
+                    className="rounded-full bg-primary"
                     style={{ width: '6px', height: '6px' }}
                   />
                 )}
@@ -244,7 +218,7 @@ export default function PremiumGeneratingPage() {
         </div>
       </div>
 
-      <p className="mt-6 text-[13px] text-[#8B849E] leading-[1.6]">
+      <p className="mt-6 text-caption text-ink-muted leading-[1.6]">
         🔒 분석 중 입력하신 정보는 안전하게 보호되며, 제3자에게 제공되지
         않습니다.
       </p>
