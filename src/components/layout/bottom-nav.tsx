@@ -4,7 +4,7 @@ const tabs = [
     active: true,
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="#7C6FCD">
-        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+        <path d="M12 3 C12.4 3 12.7 3.3 12.9 3.7 L14.8 8.9 C15 9.4 15.4 9.7 15.9 9.8 L21.4 10.4 C22.2 10.5 22.5 11.5 21.9 12 L17.8 15.7 C17.4 16.1 17.2 16.6 17.4 17.1 L18.7 22.4 C18.9 23.2 18 23.8 17.3 23.3 L12.5 20.4 C12.2 20.2 11.8 20.2 11.5 20.4 L6.7 23.3 C6 23.8 5.1 23.2 5.3 22.4 L6.6 17.1 C6.8 16.6 6.6 16.1 6.2 15.7 L2.1 12 C1.5 11.5 1.8 10.5 2.6 10.4 L8.1 9.8 C8.6 9.7 9 9.4 9.2 8.9 L11.1 3.7 C11.3 3.3 11.6 3 12 3Z" />
       </svg>
     ),
   },
@@ -43,7 +43,7 @@ const tabs = [
 export default function BottomNav() {
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] h-16 bg-white flex items-center justify-around px-2 z-50"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-16 bg-white flex items-center justify-around px-2 z-50"
       style={{ boxShadow: "0px -1px 12px rgba(0,0,0,0.06)" }}
     >
       {tabs.map((tab) => (

@@ -1,88 +1,157 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import useEmblaCarousel from "embla-carousel-react";
+import ClassNames from "embla-carousel-class-names";
+import { useCallback, useEffect, useState } from "react";
 
 const NAMES = [
   {
     index: "01",
     name: "서우",
+    icon: "/purple_heart.png",
     desc: "한결같이 맑고\n바른 아이",
-    tags: ["맑은한", "단정한", "빛은"],
+    tags: ["맑은", "단정한", "밝은"],
   },
   {
     index: "02",
     name: "하린",
+    icon: "/gold_star.png",
     desc: "하늘처럼 맑고\n따뜻한 마음을 가진 아이",
     tags: ["부드러운", "따뜻한", "밝은"],
   },
   {
     index: "03",
     name: "유안",
+    icon: "/skyblue_moon.png",
     desc: "편안하고\n언제나 사랑받는 아이",
     tags: ["편안한", "사랑스러운", "포근한"],
   },
+  {
+    index: "04",
+    name: "지온",
+    icon: "/purple_heart.png",
+    desc: "지혜롭고\n온화한 빛을 가진 아이",
+    tags: ["지혜로운", "온화한", "빛나는"],
+  },
+  {
+    index: "05",
+    name: "나은",
+    icon: "/gold_star.png",
+    desc: "날마다 더\n나아가는 아이",
+    tags: ["성장하는", "희망찬", "따뜻한"],
+  },
 ];
 
-// 중앙 카드 너비 비율 (컨테이너 대비)
-const CARD_RATIO = 0.62;
-const GAP = 12;
-
 export default function NameCarousel() {
-  const [active, setActive] = useState(1); // 중간 카드부터 시작
-  const [cardWidth, setCardWidth] = useState(240);
-  const [offset, setOffset] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef(0);
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    {
+      loop: true,
+      align: "center",
+      containScroll: false,
+      startIndex: 2,
+    },
+    [ClassNames()],
+  );
+
+  const [activeIndex, setActiveIndex] = useState(2);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setActiveIndex(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
 
   useEffect(() => {
-    const update = () => {
-      if (!containerRef.current) return;
-      const W = containerRef.current.offsetWidth;
-      const cw = Math.round(W * CARD_RATIO);
-      setCardWidth(cw);
-      setOffset(-active * (cw + GAP) + (W - cw) / 2);
+    if (!emblaApi) return;
+    emblaApi.on("select", onSelect);
+    return () => {
+      emblaApi.off("select", onSelect);
     };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [active]);
+  }, [emblaApi, onSelect]);
 
-  const goTo = (i: number) =>
-    setActive(((i % NAMES.length) + NAMES.length) % NAMES.length);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const delta = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(delta) > 40) goTo(delta > 0 ? active + 1 : active - 1);
-  };
+  const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
+  const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
 
   return (
-    <section className="py-8" style={{ background: "#F9F7F9" }}>
+    <section className="py-10">
+      <style>{`
+        .embla__slide .slide-inner {
+          transform: scale(0.78);
+          opacity: 0.6;
+          transition: transform 0.35s ease, opacity 0.35s ease, box-shadow 0.35s ease;
+          box-shadow: 0px 2px 8px rgba(124,111,205,0.06);
+        }
+        .embla__slide.is-snapped .slide-inner {
+          transform: scale(1.05);
+          opacity: 1;
+          box-shadow: 0px 8px 32px rgba(124,111,205,0.18);
+        }
+        .embla__slide .slide-name {
+          font-size: 26px;
+          transition: font-size 0.35s ease;
+        }
+        .embla__slide.is-snapped .slide-name {
+          font-size: 36px;
+        }
+        .embla__slide .slide-icon {
+          width: 16px;
+          height: 16px;
+          transition: width 0.35s ease, height 0.35s ease;
+        }
+        .embla__slide.is-snapped .slide-icon {
+          width: 22px;
+          height: 22px;
+        }
+        .embla__slide .slide-desc {
+          font-size: 12px;
+          transition: font-size 0.35s ease;
+        }
+        .embla__slide.is-snapped .slide-desc {
+          font-size: 14px;
+        }
+        .embla__slide .slide-tag {
+          color: #8B849E;
+          font-weight: 400;
+          transition: color 0.35s ease, font-weight 0.35s ease;
+        }
+        .embla__slide.is-snapped .slide-tag {
+          color: #9B7CF8;
+          font-weight: 600;
+        }
+        .embla__slide .slide-card {
+          height: 220px;
+          transition: height 0.35s ease;
+        }
+        .embla__slide.is-snapped .slide-card {
+          height: 240px;
+        }
+      `}</style>
+
       <h2
-        className="text-center font-semibold text-[#2D2540] mb-6"
+        className="text-center font-semibold text-[#2D2540] mb-6 flex items-center justify-center gap-1"
         style={{ fontSize: "16px", letterSpacing: "-0.2px" }}
       >
-        어떤 이름은 어때요?{" "}
-        <span className="text-[#7C6FCD]">✦</span>
+        이런 이름은 어때요?
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/sparkle_two.png"
+          alt=""
+          aria-hidden="true"
+          style={{ width: "26px", height: "26px" }}
+        />
       </h2>
 
-      {/* 캐러셀 + 사이드 버튼 */}
       <div className="relative flex items-center">
-        {/* 이전 버튼 — 섹션 왼쪽 끝 */}
         <button
-          onClick={() => goTo(active - 1)}
-          className="absolute z-10 flex items-center justify-center bg-white rounded-full"
+          onClick={scrollPrev}
+          className="absolute left-2 z-10 flex items-center justify-center bg-white rounded-full flex-shrink-0"
           style={{
-            left: "6px",
-            width: "32px",
-            height: "32px",
+            width: "28px",
+            height: "28px",
             boxShadow: "0px 2px 10px rgba(124,111,205,0.22)",
           }}
           aria-label="이전 이름"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path
               d="M10 12L6 8l4-4"
               stroke="#7C6FCD"
@@ -93,119 +162,86 @@ export default function NameCarousel() {
           </svg>
         </button>
 
-        {/* 트랙 */}
         <div
-          ref={containerRef}
-          className="flex-1 overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          className="w-full"
+          style={{
+            overflowX: "clip",
+            paddingLeft: "44px",
+            paddingRight: "44px",
+          }}
+          ref={emblaRef}
         >
-          <div
-            className="flex"
-            style={{
-              transform: `translateX(${offset}px)`,
-              transition: "transform 0.3s ease",
-              gap: `${GAP}px`,
-            }}
-          >
-            {NAMES.map((item, i) => {
-              const isActive = i === active;
-              return (
+          <div className="flex" style={{ gap: "8px" }}>
+            {NAMES.map((item) => (
+              <div
+                key={item.index}
+                className="embla__slide flex-none"
+                style={{ width: "180px" }}
+              >
                 <div
-                  key={item.index}
-                  className="flex-none bg-white"
-                  style={{
-                    width: `${cardWidth}px`,
-                    minHeight: isActive ? "230px" : "200px",
-                    borderRadius: isActive ? "22px" : "18px",
-                    padding: isActive ? "22px 18px 20px" : "16px 14px 16px",
-                    transform: `scale(${isActive ? 1 : 0.88})`,
-                    transformOrigin: "center",
-                    opacity: isActive ? 1 : 0.65,
-                    transition:
-                      "transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease",
-                    boxShadow: isActive
-                      ? "0px 8px 32px rgba(124,111,205,0.18)"
-                      : "0px 2px 12px rgba(124,111,205,0.08)",
-                  }}
+                  className="slide-inner"
+                  style={{ borderRadius: "20px", background: "#FFFFFF" }}
                 >
-                  {/* 인덱스 */}
-                  <span
-                    className="block font-medium text-[#8B849E]"
-                    style={{ fontSize: "12px" }}
-                  >
-                    {item.index}
-                  </span>
-
-                  {/* 이름 + 아이콘 */}
-                  <div className="mt-1 flex items-end gap-1">
+                  <div className="slide-card" style={{ padding: "20px 18px" }}>
                     <span
-                      className="font-bold text-[#2D2540] leading-[1.15]"
-                      style={{
-                        fontSize: isActive ? "36px" : "26px",
-                        letterSpacing: "-0.5px",
-                        transition: "font-size 0.3s ease",
-                      }}
+                      className="block"
+                      style={{ fontSize: "12px", color: "#8B849E" }}
                     >
-                      {item.name}
+                      {item.index}
                     </span>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/star.png"
-                      alt=""
-                      className="mb-1"
-                      style={{
-                        width: isActive ? "22px" : "16px",
-                        height: isActive ? "22px" : "16px",
-                        objectFit: "contain",
-                        transition: "width 0.3s ease, height 0.3s ease",
-                      }}
-                    />
-                  </div>
 
-                  {/* 설명 */}
-                  <p
-                    className="mt-3 text-[#2D2540] leading-[1.6] whitespace-pre-line"
-                    style={{ fontSize: isActive ? "15px" : "12px" }}
-                  >
-                    {item.desc}
-                  </p>
-
-                  {/* 해시태그 */}
-                  <div className="mt-4 flex gap-[6px] flex-wrap">
-                    {item.tags.map((tag) => (
+                    <div className="mt-1 flex items-end gap-1">
                       <span
-                        key={tag}
-                        style={{
-                          fontSize: "12px",
-                          color: isActive ? "#7C6FCD" : "#8B849E",
-                          fontWeight: isActive ? 600 : 400,
-                          transition: "color 0.3s ease",
-                        }}
+                        className="slide-name font-bold leading-[1.15]"
+                        style={{ letterSpacing: "-0.5px", color: "#2D2540" }}
                       >
-                        #{tag}
+                        {item.name}
                       </span>
-                    ))}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.icon}
+                        alt=""
+                        className="slide-icon mb-1"
+                        style={{ objectFit: "contain" }}
+                      />
+                    </div>
+
+                    <p
+                      className="slide-desc mt-3 leading-[1.6] whitespace-pre-line"
+                      style={{ color: "#2D2540" }}
+                    >
+                      {item.desc}
+                    </p>
+
+                    <div className="mt-4 flex gap-[6px] flex-wrap">
+                      {item.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="slide-tag"
+                          style={{ fontSize: "12px" }}
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* 다음 버튼 — 섹션 오른쪽 끝 */}
         <button
-          onClick={() => goTo(active + 1)}
-          className="absolute z-10 flex items-center justify-center bg-white rounded-full"
+          onClick={scrollNext}
+          className="absolute right-2 z-10 flex items-center justify-center bg-white rounded-full flex-shrink-0"
           style={{
-            right: "6px",
-            width: "32px",
-            height: "32px",
+            width: "28px",
+            height: "28px",
             boxShadow: "0px 2px 10px rgba(124,111,205,0.22)",
           }}
           aria-label="다음 이름"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path
               d="M6 4l4 4-4 4"
               stroke="#7C6FCD"
@@ -217,22 +253,28 @@ export default function NameCarousel() {
         </button>
       </div>
 
-      {/* 페이지네이션 도트 */}
-      <div className="flex justify-center items-center gap-2 mt-5">
-        {NAMES.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i)}
-            className="rounded-full"
-            style={{
-              width: i === active ? "18px" : "6px",
-              height: "6px",
-              backgroundColor: i === active ? "#7C6FCD" : "#C4BEDB",
-              transition: "width 0.3s ease, background-color 0.3s ease",
-            }}
-            aria-label={`${i + 1}번 카드`}
-          />
-        ))}
+      <div className="flex justify-center items-center gap-2 mt-4">
+        {NAMES.map((_, i) => {
+          const isActive = i === activeIndex;
+          return (
+            <button
+              key={i}
+              onClick={() => emblaApi?.scrollTo(i)}
+              aria-label={`${i + 1}번 카드`}
+            >
+              <div
+                style={{
+                  width: isActive ? "8px" : "6px",
+                  height: isActive ? "8px" : "6px",
+                  borderRadius: "50%",
+                  background: isActive ? "#9B7CF8" : "#D1CCE8",
+                  transition:
+                    "width 0.3s ease, height 0.3s ease, background 0.3s ease",
+                }}
+              />
+            </button>
+          );
+        })}
       </div>
     </section>
   );
