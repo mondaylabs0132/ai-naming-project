@@ -1,36 +1,51 @@
+import Image from "next/image";
+
 const FILTERS = [
-  { label: "느낌", display: "❤️" },
-  { label: "한 글자", display: "🧵" },
-  { label: "부모 이름", display: "👨‍👩‍👧" },
-  { label: "선호 한자", display: "漢", isChar: true },
+  { label: "느낌", icon: "/pink_heart.png", iconSize: 24 },
+  { label: "한 글자", icon: "/scroll.png", iconSize: 24 },
+  { label: "부모 이름", icon: "/boys.png", iconSize: 24 },
+  { label: "선호 한자", icon: null, isChar: true },
 ];
 
 export default function FilterSection() {
   return (
-    <section className="pt-2 pb-8">
-      <p className="text-center text-[12px] text-[#8B849E] mb-4">
+    <section className="pt-2 pb-8 px-5">
+      <p className="text-center text-[12px] text-[#8B849E]">
         원하는 조건을 자유롭게 선택
       </p>
+
       <div
-        className="flex gap-3 overflow-x-auto"
-        style={{ scrollbarWidth: "none", paddingInline: "20px" }}
+        className="flex bg-[#f7f3fb] border border-[#EEEBF8] overflow-hidden mt-[10px]"
+        style={{ borderRadius: "15px" }}
       >
-        {FILTERS.map((f) => (
+        {FILTERS.map((f, i) => (
           <div
             key={f.label}
-            className="flex-none flex items-center gap-[7px] bg-white rounded-full border border-[#EEEBF8] whitespace-nowrap"
-            style={{ padding: "10px 16px" }}
+            className="flex-1 flex flex-row items-center justify-center gap-[6px] py-4"
+            style={{
+              borderLeft: i !== 0 ? "1px solid #EEEBF8" : "none",
+            }}
           >
+            {f.isChar ? (
+              <span
+                className="font-bold text-[#7C6FCD]"
+                style={{ fontSize: "24px" }}
+              >
+                漢
+              </span>
+            ) : (
+              <Image
+                src={f.icon!}
+                alt=""
+                width={f.iconSize}
+                height={f.iconSize}
+                style={{ objectFit: "contain" }}
+              />
+            )}
             <span
-              className={
-                f.isChar
-                  ? "text-[15px] font-bold text-[#7C6FCD]"
-                  : "text-[15px]"
-              }
+              className="font-medium text-[#2D2540]"
+              style={{ fontSize: "13px" }}
             >
-              {f.display}
-            </span>
-            <span className="text-[13px] font-medium text-[#2D2540]">
               {f.label}
             </span>
           </div>
