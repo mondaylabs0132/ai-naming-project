@@ -1,9 +1,19 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
+const HIDDEN_PATHS = ["/mypage"];
+
 export default function TopNav() {
+  const pathname = usePathname();
+
+  if (HIDDEN_PATHS.includes(pathname)) return null;
+
   return (
     <header className="sticky top-0 z-40 flex items-center px-5 bg-[#F9F7F9]/80 backdrop-blur-md">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo.png"
+        src="/assets/logo.png"
         alt="이름담다 로고"
         className="py-3"
         style={{ width: "100px", height: "auto" }}

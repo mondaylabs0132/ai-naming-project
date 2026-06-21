@@ -118,6 +118,7 @@
     min-height: 100dvh;
     background-color: var(--color-bg);
     position: relative;
+    flex-shrink: 0;
   }
 
   .page-content {

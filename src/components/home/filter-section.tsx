@@ -1,9 +1,9 @@
 import Image from "next/image";
 
 const FILTERS = [
-  { label: "느낌", icon: "/pink_heart.png", iconSize: 24 },
-  { label: "한 글자", icon: "/scroll.png", iconSize: 24 },
-  { label: "부모 이름", icon: "/boys.png", iconSize: 24 },
+  { label: "느낌", icon: "/assets/pink_heart.png", iconSize: 24 },
+  { label: "한 글자", icon: "/assets/scroll.png", iconSize: 24 },
+  { label: "부모 이름", icon: "/assets/boys.png", iconSize: 24 },
   { label: "선호 한자", icon: null, isChar: true },
 ];
 

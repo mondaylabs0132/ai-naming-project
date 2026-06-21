@@ -8,35 +8,35 @@ const NAMES = [
   {
     index: "01",
     name: "서우",
-    icon: "/purple_heart.png",
+    icon: "/assets/purple_heart.png",
     desc: "한결같이 맑고\n바른 아이",
     tags: ["맑은", "단정한", "밝은"],
   },
   {
     index: "02",
     name: "하린",
-    icon: "/gold_star.png",
+    icon: "/assets/gold_star.png",
     desc: "하늘처럼 맑고\n따뜻한 마음을 가진 아이",
     tags: ["부드러운", "따뜻한", "밝은"],
   },
   {
     index: "03",
     name: "유안",
-    icon: "/skyblue_moon.png",
+    icon: "/assets/skyblue_moon.png",
     desc: "편안하고\n언제나 사랑받는 아이",
     tags: ["편안한", "사랑스러운", "포근한"],
   },
   {
     index: "04",
     name: "지온",
-    icon: "/purple_heart.png",
+    icon: "/assets/purple_heart.png",
     desc: "지혜롭고\n온화한 빛을 가진 아이",
     tags: ["지혜로운", "온화한", "빛나는"],
   },
   {
     index: "05",
     name: "나은",
-    icon: "/gold_star.png",
+    icon: "/assets/gold_star.png",
     desc: "날마다 더\n나아가는 아이",
     tags: ["성장하는", "희망찬", "따뜻한"],
   },
@@ -133,7 +133,7 @@ export default function NameCarousel() {
         이런 이름은 어때요?
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/sparkle_two.png"
+          src="/assets/sparkle_two.png"
           alt=""
           aria-hidden="true"
           style={{ width: "26px", height: "26px" }}
