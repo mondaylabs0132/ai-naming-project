@@ -2,28 +2,28 @@ const FEELINGS = [
   {
     id: "soft",
     label: "부드러운",
-    icon: "/smile_heart.png",
+    icon: "/assets/smile_heart.png",
     bg: "#fdf0f2",
     color: "#e53033",
   },
   {
     id: "special",
     label: "특별한",
-    icon: "/purple_star.png",
+    icon: "/assets/purple_star.png",
     bg: "#f8f4fc",
     color: "#41397f",
   },
   {
     id: "calm",
     label: "차분한",
-    icon: "/skyblue_moon.png",
+    icon: "/assets/skyblue_moon.png",
     bg: "#f2f6fd",
     color: "#2e69bc",
   },
   {
     id: "warm",
     label: "따뜻한",
-    icon: "/sun.png",
+    icon: "/assets/sun.png",
     bg: "#fef7eb",
     color: "#b3520d",
   },
@@ -51,7 +51,7 @@ export default function FeelingSection() {
         어떤 느낌의 이름을 원하시나요?
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/sparkle_two.png"
+          src="/assets/sparkle_two.png"
           alt=""
           aria-hidden="true"
           style={{ width: "26px", height: "26px" }}

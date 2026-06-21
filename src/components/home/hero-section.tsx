@@ -4,7 +4,7 @@ export default function HeroSection() {
       className="bg-[#F9F7F9] overflow-hidden px-5"
       style={{
         minHeight: "420px",
-        backgroundImage: "url('/hero-star.png')",
+        backgroundImage: "url('/assets/hero-star.png')",
         backgroundRepeat: "no-repeat",
         backgroundSize: "min(320px, 55%)",
         backgroundPosition: "right 0px top 20px",
