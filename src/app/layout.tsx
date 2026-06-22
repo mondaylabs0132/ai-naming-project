@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import TopNav from "@/components/layout/top-nav";
+import BottomNav from "@/components/layout/bottom-nav";
 
 const pretendard = localFont({
   src: "../fonts/PretendardVariable.woff2",
@@ -23,7 +25,9 @@ export default function RootLayout({
     <html lang="ko" className={`${pretendard.variable} antialiased`}>
       <body className="bg-gray-300">
         <div className="max-w-[600px] mx-auto bg-[#F9F7F9] min-h-screen relative">
+          <TopNav />
           {children}
+          <BottomNav />
         </div>
       </body>
     </html>

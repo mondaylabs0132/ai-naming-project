@@ -1,55 +1,100 @@
-const MOODS = [
-  { label: "부드러운", bg: "#FFF0F3", color: "#E8638C" },
-  { label: "특별한", bg: "#EAE7F8", color: "#7C6FCD" },
-  { label: "차분한", bg: "#EEF6FF", color: "#5B8DD9" },
-  { label: "따뜻한", bg: "#FFF4E0", color: "#E8963A" },
+const FEELINGS = [
+  {
+    id: "soft",
+    label: "부드러운",
+    icon: "/assets/smile_heart.png",
+    bg: "#fdf0f2",
+    color: "#e53033",
+  },
+  {
+    id: "special",
+    label: "특별한",
+    icon: "/assets/purple_star.png",
+    bg: "#f8f4fc",
+    color: "#41397f",
+  },
+  {
+    id: "calm",
+    label: "차분한",
+    icon: "/assets/skyblue_moon.png",
+    bg: "#f2f6fd",
+    color: "#2e69bc",
+  },
+  {
+    id: "warm",
+    label: "따뜻한",
+    icon: "/assets/sun.png",
+    bg: "#fef7eb",
+    color: "#b3520d",
+  },
 ];
 
-export default function MoodSection() {
+export default function FeelingSection() {
   return (
-    <section className="px-4 pt-6 pb-8">
+    <section
+      style={{
+        paddingTop: "40px",
+        paddingBottom: "32px",
+        paddingLeft: "20px",
+        paddingRight: "20px",
+      }}
+    >
       <h2
-        className="text-center font-semibold text-[#2D2540] mb-5"
-        style={{ fontSize: "16px", letterSpacing: "-0.2px" }}
+        className="flex items-center justify-center gap-1 text-center text-[#2D2540]"
+        style={{
+          fontSize: "15px",
+          fontWeight: 700,
+          marginBottom: "20px",
+          letterSpacing: "-0.2px",
+        }}
       >
-        어떤 느낌의 이름을 원하시나요?{" "}
-        <span className="text-[#7C6FCD]">✦</span>
+        어떤 느낌의 이름을 원하시나요?
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/sparkle_two.png"
+          alt=""
+          aria-hidden="true"
+          style={{ width: "26px", height: "26px" }}
+        />
       </h2>
 
-      {/* 4열 1행 */}
-      <div className="grid grid-cols-4 gap-[10px]">
-        {MOODS.map((mood) => (
+      <div style={{ display: "flex", gap: "8px" }}>
+        {FEELINGS.map((item) => (
           <div
-            key={mood.label}
-            className="rounded-[16px] flex flex-col items-center justify-center gap-[8px]"
+            key={item.id}
             style={{
-              backgroundColor: mood.bg,
-              paddingTop: "18px",
-              paddingBottom: "14px",
+              flex: 1,
+              borderRadius: "16px",
+              background: item.bg,
+              border: "2px solid transparent",
+              padding: "16px 0",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/star.png" alt="" style={{ width: "34px", height: "34px", objectFit: "contain" }} />
+            <img
+              src={item.icon}
+              alt=""
+              aria-hidden="true"
+              style={{ width: "60px", height: "60px", objectFit: "contain" }}
+            />
             <span
-              className="font-semibold text-center"
-              style={{ fontSize: "12px", color: mood.color }}
+              style={{
+                fontSize: "12px",
+                fontWeight: 600,
+                color: item.color,
+                whiteSpace: "nowrap",
+              }}
             >
-              {mood.label}
+              {item.label}
             </span>
           </div>
         ))}
       </div>
-
-      {/* 안내 텍스트 */}
-      <p
-        className="text-center text-[#8B849E] mt-5 leading-[1.7]"
-        style={{ fontSize: "13px" }}
-      >
-        원하는 느낌을 선택하면{" "}
-        <span className="text-[#7C6FCD] font-medium">↗</span>
-        <br />
-        더 잘 어울리는 이름을 추천해드려요 💜
-      </p>
     </section>
   );
 }
