@@ -11,7 +11,7 @@ export default function GeneratingPage() {
   return (
     <div className="px-5 py-6 text-center">
       <div className="flex items-center justify-center gap-1">
-        <p className="text-caption xs:text-sm font-semibold text-primary">
+        <p className="text-caption font-semibold text-primary">
           정확하고 깊이 있는 분석을 위해
         </p>
         <Image
@@ -19,10 +19,10 @@ export default function GeneratingPage() {
           alt="sparkle_two"
           width={461}
           height={514}
-          className="w-3 xs:w-3.5 h-auto pb-1 object-contain"
+          className="w-3 h-auto pb-1 object-contain"
         />
       </div>
-      <h1 className="mt-2 text-page-title xs:text-[26px] font-extrabold text-ink leading-[1.35] tracking-[-0.4px]">
+      <h1 className="mt-2 text-page-title font-extrabold text-ink leading-[1.35] tracking-[-0.4px]">
         AI가 이름을{' '}
         <span className="relative inline-block text-primary">
           분석하고 있어요
@@ -43,7 +43,7 @@ export default function GeneratingPage() {
           </svg>
         </span>
       </h1>
-      <p className="mt-3 xs:text-xs text-ink-muted leading-[1.7]">
+      <p className="mt-3 text-ink-muted leading-[1.7]">
         입력하신 정보를 바탕으로
         <br />
         사주, 오행, 음양, 수리, 음운, 의미까지 종합 분석 중이에요.
@@ -74,8 +74,8 @@ export default function GeneratingPage() {
 
       {/* 안내 카드 */}
       <div className="mt-2 bg-primary-pale rounded-lg shadow-card p-5 text-left">
-        <p className="xs:text-sm font-bold text-primary flex items-center gap-2 pl-0.5">
-          <Siren className="xs:w-4 xs:h-4 w-5 h-5" />
+        <p className="font-bold text-primary flex items-center gap-2 pl-0.5">
+          <Siren className="w-5 h-5" />
           알려드려요
         </p>
         <ul className="mt-3 space-y-2">
@@ -88,15 +88,13 @@ export default function GeneratingPage() {
                 height={1024}
                 className="w-5 h-auto mt-0.5 shrink-0 object-contain"
               />
-              <span className="xs:text-[10px] text-ink whitespace-nowrap">
-                {tip}
-              </span>
+              <span className=" text-ink">{tip}</span>
             </li>
           ))}
         </ul>
       </div>
 
-      <p className="mt-6 xs:text-xs font-semibold text-ink leading-[1.7]">
+      <p className="mt-6 font-semibold text-ink leading-[1.7]">
         분석 결과는 입력하신 정보 외에는 저장되지 않아요.
         <br />
         안심하고 기다려주세요 💜
