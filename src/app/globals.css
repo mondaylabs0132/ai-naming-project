@@ -3,6 +3,9 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── 브레이크포인트 ── */
+  --breakpoint-xs: 375px;
+
   /* ── 폰트 ── */
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
 

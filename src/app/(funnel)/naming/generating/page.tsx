@@ -1,3 +1,6 @@
+import { Siren } from 'lucide-react';
+import Image from 'next/image';
+
 const TIPS = [
   '분석 시간은 평균 10~20초 정도 소요돼요.',
   '더 정확한 결과를 위해 데이터를 꼼꼼히 분석하고 있어요.',
@@ -7,72 +10,85 @@ const TIPS = [
 export default function GeneratingPage() {
   return (
     <div className="px-5 py-6 text-center">
-      <p className="text-caption font-semibold text-primary">
-        정확하고 깊이 있는 분석을 위해 ✨
-      </p>
-      <h1 className="mt-2 text-page-title font-extrabold text-ink leading-[1.35] tracking-[-0.4px]">
+      <div className="flex items-center justify-center gap-1">
+        <p className="text-caption xs:text-sm font-semibold text-primary">
+          정확하고 깊이 있는 분석을 위해
+        </p>
+        <Image
+          src="/assets/sparkle_two.png"
+          alt="sparkle_two"
+          width={461}
+          height={514}
+          className="w-3 xs:w-3.5 h-auto pb-1 object-contain"
+        />
+      </div>
+      <h1 className="mt-2 text-page-title xs:text-[26px] font-extrabold text-ink leading-[1.35] tracking-[-0.4px]">
         AI가 이름을{' '}
-        <span className="text-primary underline decoration-2 decoration-primary-muted">
+        <span className="relative inline-block text-primary">
           분석하고 있어요
+          <svg
+            className="absolute left-0 -bottom-1 w-full text-primary-muted"
+            height="8"
+            viewBox="0 0 100 10"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M2 7 Q50 2 98 7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4"
+              strokeLinecap="round"
+            />
+          </svg>
         </span>
       </h1>
-      <p className="mt-3 text-[14px] text-ink-muted leading-[1.7]">
+      <p className="mt-3 xs:text-xs text-ink-muted leading-[1.7]">
         입력하신 정보를 바탕으로
         <br />
         사주, 오행, 음양, 수리, 음운, 의미까지 종합 분석 중이에요.
       </p>
 
       {/* 일러스트 영역 */}
-      <div className="relative my-8 flex justify-center">
-        <div className="absolute left-2 top-4 bg-surface rounded-md shadow-card flex items-center gap-1 px-3 py-2">
-          <span className="text-[18px]">📊</span>
-        </div>
-        <div
-          className="absolute right-3 top-1/2 -translate-y-1/2 bg-surface rounded-full shadow-card flex items-center justify-center text-caption font-bold text-primary animate-pulse"
-          style={{ width: '44px', height: '44px' }}
-        >
-          AI
-        </div>
-        <div className="absolute right-1 bottom-2 bg-surface rounded-md shadow-card flex items-center gap-1 px-3 py-2">
-          <span className="text-[18px]">📈</span>
-        </div>
-
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/hero-star.png"
-          alt=""
-          style={{ width: '200px', height: 'auto', objectFit: 'contain' }}
-        />
-
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/sparkle_two.png"
-          alt=""
-          className="absolute left-6 bottom-0 animate-pulse"
-          style={{ width: '20px', height: '20px', objectFit: 'contain' }}
+      <div className="relative my-8">
+        <Image
+          src="/assets/funnel-generating.png"
+          alt="funnel-generating"
+          width={1408}
+          height={1117}
+          sizes="100vw"
+          className="w-full h-auto object-contain"
         />
       </div>
 
-      <p className="text-[14px] font-semibold text-ink">
-        정성껏 분석하고 있어요 ✨
-      </p>
+      <div className="flex items-center justify-center gap-1">
+        <p className="font-semibold text-ink">정성껏 분석하고 있어요</p>
+        <Image
+          src="/assets/sparkle.png"
+          alt="sparkle"
+          width={1024}
+          height={1024}
+          className="w-8 h-auto object-contain"
+        />
+      </div>
 
       {/* 안내 카드 */}
-      <div className="mt-6 bg-surface rounded-lg shadow-card p-5 text-left">
-        <p className="text-body font-semibold text-ink flex items-center gap-1.5">
-          💡 알려드려요
+      <div className="mt-2 bg-primary-pale rounded-lg shadow-card p-5 text-left">
+        <p className="xs:text-sm font-bold text-primary flex items-center gap-2 pl-0.5">
+          <Siren className="xs:w-4 xs:h-4 w-5 h-5" />
+          알려드려요
         </p>
-        <ul className="mt-3 space-y-2.5">
+        <ul className="mt-3 space-y-2">
           {TIPS.map((tip) => (
-            <li key={tip} className="flex items-start gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/check.png"
-                alt=""
-                className="mt-0.5 shrink-0"
-                style={{ width: '16px', height: '16px', objectFit: 'contain' }}
+            <li key={tip} className="flex items-center gap-2">
+              <Image
+                src="/assets/check.png"
+                alt="check"
+                width={1024}
+                height={1024}
+                className="w-5 h-auto mt-0.5 shrink-0 object-contain"
               />
-              <span className="text-[14px] text-ink leading-[1.6]">
+              <span className="xs:text-[10px] text-ink whitespace-nowrap">
                 {tip}
               </span>
             </li>
@@ -80,7 +96,7 @@ export default function GeneratingPage() {
         </ul>
       </div>
 
-      <p className="mt-8 text-caption text-ink-muted leading-[1.7]">
+      <p className="mt-6 xs:text-xs font-semibold text-ink leading-[1.7]">
         분석 결과는 입력하신 정보 외에는 저장되지 않아요.
         <br />
         안심하고 기다려주세요 💜

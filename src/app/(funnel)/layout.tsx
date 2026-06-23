@@ -3,5 +3,5 @@ export default function FunnelLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <div className="pb-16">{children}</div>;
 }
