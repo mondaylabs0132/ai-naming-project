@@ -71,6 +71,11 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname();
 
+  const isHidden =
+    pathname.includes("/result/") ||
+    pathname.endsWith("/detail");
+  if (isHidden) return null;
+
   return (
     <nav
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-16 bg-white flex items-center justify-around px-2 z-50"
