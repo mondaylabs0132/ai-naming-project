@@ -1,7 +1,7 @@
 import {
   CheckCircle2,
   ShieldCheck,
-  LoaderCircle,
+  Activity,
   Siren,
   RefreshCcw,
 } from 'lucide-react';
@@ -175,8 +175,10 @@ export default function PremiumGeneratingPage() {
 
       <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-1.5">
-          <p className="flex items-center gap-2 text-[14px] font-semibold text-ink">
-            <LoaderCircle size={16} />
+          <p className="flex items-center gap-2 font-semibold text-ink">
+            <div className="text-primary bg-primary-pale p-1 rounded-xs flex items-center justify-center">
+              <Activity size={16} className="text-primary" />
+            </div>
             현재 분석 중인 요소
           </p>
 
@@ -212,10 +214,10 @@ export default function PremiumGeneratingPage() {
         </div>
       </div>
 
-      <p className="mt-6 flex items-center justify-center gap-1.5 text-caption leading-[1.6] text-ink-muted">
-        <ShieldCheck size={14} />
+      <span className="mt-6 flex items-center justify-center gap-1.5 text-[10px] min-[376px]:text-caption leading-[1.6] text-ink-muted">
+        <ShieldCheck size={14} className="text-ink-muted mb-0.5" />
         분석 중 입력하신 정보는 안전하게 보호되며, 제3자에게 제공되지 않습니다.
-      </p>
+      </span>
     </div>
   );
 }
