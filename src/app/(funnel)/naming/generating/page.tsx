@@ -88,7 +88,7 @@ export default function GeneratingPage() {
                 height={1024}
                 className="w-5 h-auto mt-0.5 shrink-0 object-contain"
               />
-              <span className=" text-ink">{tip}</span>
+              <span className="text-[10px] min-[376px]:text-body text-ink">{tip}</span>
             </li>
           ))}
         </ul>
