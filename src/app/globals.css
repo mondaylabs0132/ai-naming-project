@@ -5,6 +5,7 @@
 @theme {
   /* ── 폰트 ── */
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
+  --font-chalkboard: var(--font-hakgyoansim-chilpanjiugae), cursive;
 
   /* ── 컬러 ── */
   --color-primary:      #7C6FCD;

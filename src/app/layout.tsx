@@ -11,6 +11,12 @@ const pretendard = localFont({
   weight: "45 920",
 });
 
+const hakgyoansimChilpanjiugae = localFont({
+  src: "../fonts/HakgyoansimChilpanjiugae.otf",
+  variable: "--font-hakgyoansim-chilpanjiugae",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "이름담다",
   description: "AI와 전문가의 마음을 담아, 평생 부를 특별한 이름을 지어드려요.",
@@ -22,7 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${pretendard.variable} antialiased`}>
+    <html
+      lang="ko"
+      className={`${pretendard.variable} ${hakgyoansimChilpanjiugae.variable} antialiased`}
+    >
       <body className="bg-gray-300">
         <div className="max-w-[600px] mx-auto bg-[#F9F7F9] min-h-screen relative">
           <TopNav />
