@@ -10,7 +10,9 @@ export default function TopNav() {
   const isHidden =
     HIDDEN_PATHS.includes(pathname) ||
     pathname.includes("/result") ||
-    pathname.startsWith("/mypage/results");
+    pathname.startsWith("/mypage/results") ||
+    pathname.startsWith("/naming") ||
+    pathname.startsWith("/upgrade");
   if (isHidden) return null;
 
   return (
