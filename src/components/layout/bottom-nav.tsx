@@ -68,10 +68,13 @@ const TABS = [
   },
 ];
 
+const HIDDEN_PATH_PREFIXES = ["/naming", "/results", "/upgrade", "/login"];
+
 export default function BottomNav() {
   const pathname = usePathname();
 
   const isHidden =
+    HIDDEN_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
     pathname.includes("/result/") ||
     pathname.endsWith("/detail");
   if (isHidden) return null;
