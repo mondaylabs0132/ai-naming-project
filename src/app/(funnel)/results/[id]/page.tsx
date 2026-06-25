@@ -1,4 +1,6 @@
 import Image from 'next/image';
+import Link from 'next/link';
+import { X } from 'lucide-react';
 import NameResultCard from './_components/name-result-card';
 import UpgradeCta from './_components/upgrade-cta';
 
@@ -11,6 +13,13 @@ export default async function ResultPage({
 
   return (
     <div>
+      {/* 상단 X 버튼 */}
+      <div className="flex justify-end px-5 pt-4">
+        <Link href="/" aria-label="홈으로 나가기">
+          <X size={24} className="text-ink-muted" />
+        </Link>
+      </div>
+
       <div className="px-5 pt-2">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1 space-y-2">
@@ -44,7 +53,6 @@ export default async function ResultPage({
       </div>
 
       <NameResultCard />
-
       <UpgradeCta resultId={id} />
     </div>
   );
