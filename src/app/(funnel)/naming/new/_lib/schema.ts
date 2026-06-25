@@ -57,6 +57,14 @@ const surveyFormSchema = z.object({
 
 export const storedSurveySchema = surveyFormSchema;
 export type SurveyData = z.infer<typeof surveyFormSchema>;
+export type ValidSurveyData = SurveyData & {
+  surname: NonNullable<SurveyData["surname"]>;
+  birthStatus: NonNullable<SurveyData["birthStatus"]>;
+  birthYear: NonNullable<SurveyData["birthYear"]>;
+  birthMonth: NonNullable<SurveyData["birthMonth"]>;
+  gender: NonNullable<SurveyData["gender"]>;
+  moodKeywords: NonNullable<SurveyData["moodKeywords"]>;
+};
 
 export const surveySchema = surveyFormSchema.superRefine((data, ctx) => {
   const addIssue = (path: keyof SurveyData, message: string) => {

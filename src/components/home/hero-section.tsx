@@ -1,4 +1,14 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+
 export default function HeroSection() {
+  const router = useRouter();
+
+  const handleClick = () => {
+    router.push("/naming/new");
+  };
+
   return (
     <section
       className="bg-[#F9F7F9] overflow-hidden px-5"
@@ -35,6 +45,7 @@ export default function HeroSection() {
           </p>
 
           <button
+            onClick={handleClick}
             className="mt-6 flex items-center gap-2 bg-[#7C6FCD] text-white font-semibold rounded-full w-fit"
             style={{
               fontSize: "clamp(13px, 3.5vw, 15px)",

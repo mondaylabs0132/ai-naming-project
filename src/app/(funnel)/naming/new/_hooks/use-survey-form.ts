@@ -10,7 +10,7 @@ import {
   type SurveyData,
 } from "../_lib/schema";
 
-const STORAGE_KEY = "naming:new:surveyData";
+const SURVEY_STORAGE_KEY = "naming:new:surveyData";
 
 const EMPTY_SURVEY: SurveyData = {
   surname: undefined,
@@ -29,7 +29,7 @@ const EMPTY_SURVEY: SurveyData = {
 };
 
 function loadStoredSurvey(): SurveyData | null {
-  const raw = sessionStorage.getItem(STORAGE_KEY);
+  const raw = sessionStorage.getItem(SURVEY_STORAGE_KEY);
 
   if (!raw) {
     return null;
@@ -39,7 +39,7 @@ function loadStoredSurvey(): SurveyData | null {
     const parsed = storedSurveySchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : null;
   } catch {
-    sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(SURVEY_STORAGE_KEY);
     return null;
   }
 }
@@ -70,7 +70,7 @@ export function useSurveyForm() {
     // React Hook Form의 subscription API를 저장 side effect 용도로만 사용한다.
     // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = watch((values) => {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+      sessionStorage.setItem(SURVEY_STORAGE_KEY, JSON.stringify(values));
     });
     return () => subscription.unsubscribe();
   }, [watch]);
