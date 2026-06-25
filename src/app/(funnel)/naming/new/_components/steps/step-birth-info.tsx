@@ -81,7 +81,7 @@ export default function StepBirthInfo({
           </div>
 
           <Image
-            src="/funnel-star2.png"
+            src="/assets/funnel/funnel-star2.png"
             alt=""
             width={260}
             height={260}
@@ -256,7 +256,7 @@ function BeforeBirthFields() {
 
       <div className="mt-5 flex min-h-[54px] w-full items-center gap-1 rounded-[14px] bg-[#FFF4E6] p-2 text-left shadow-[0_2px_12px_rgba(255,179,71,0.08)]">
         <Image
-          src="/coupon.png"
+          src="/assets/funnel/coupon.png"
           alt=""
           width={34}
           height={34}
@@ -267,7 +267,7 @@ function BeforeBirthFields() {
           <span className="text-[#F08A24]">무료 재분석 쿠폰</span>을 드려요!
         </span>
         <Image
-          src="/gift-box.png"
+          src="/assets/funnel/gift-box.png"
           alt=""
           width={24}
           height={24}

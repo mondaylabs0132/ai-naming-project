@@ -176,7 +176,7 @@ export default function StepAvoid({
           </div>
 
           <Image
-            src="/funnel-star4.png"
+            src="/assets/funnel/funnel-star4.png"
             alt=""
             width={260}
             height={260}

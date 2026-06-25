@@ -149,7 +149,7 @@ export default function StepLastName({
           </div>
 
           <Image
-            src="/funnel-star1.png"
+            src="/assets/funnel/funnel-star1.png"
             alt=""
             width={260}
             height={260}

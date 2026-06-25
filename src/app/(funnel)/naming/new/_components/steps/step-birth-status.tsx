@@ -26,7 +26,7 @@ const BIRTH_STATUS_OPTIONS: BirthStatusOption[] = [
     headline: "정확한 사주 분석이 가능해요",
     description:
       "아이의 생년월일시를 기반으로\n정확한 사주 분석과 맞춤 이름을 추천드려요.",
-    imageSrc: "/baby.png",
+    imageSrc: "/assets/funnel/baby.png",
     imageAlt: "포대기에 싸인 아기 일러스트",
     tone: "purple",
   },
@@ -36,7 +36,7 @@ const BIRTH_STATUS_OPTIONS: BirthStatusOption[] = [
     headline: "예상 사주 기반으로 이름을 추천드려요",
     description:
       "출산 전에는 정확한 사주 분석이 어려워\n예상 사주를 기반으로 이름을 추천드려요.",
-    imageSrc: "/bird.png",
+    imageSrc: "/assets/funnel/bird.png",
     imageAlt: "아기를 상징하는 보따리를 문 새 일러스트",
     tone: "warm",
   },
@@ -97,7 +97,7 @@ export default function StepBirthStatus({
           </div>
 
           <Image
-            src="/funnel-star2.png"
+            src="/assets/funnel/funnel-star2.png"
             alt=""
             width={260}
             height={260}

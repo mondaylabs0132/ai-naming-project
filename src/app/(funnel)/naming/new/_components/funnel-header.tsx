@@ -5,19 +5,14 @@ import { X } from "lucide-react";
 export default function FunnelHeader() {
   return (
     <header className="bg-bg flex h-[72px] items-center justify-between px-7">
-      <div className="flex items-center gap-3">
-        <Image
-          src="/star.png"
-          alt=""
-          width={26}
-          height={26}
-          priority
-          className="h-[26px] w-[26px] object-contain"
-        />
-        <span className="text-stat font-bold leading-none tracking-normal text-ink">
-          첫지음
-        </span>
-      </div>
+      <Image
+        src="/assets/logo.png"
+        alt="이름담다 로고"
+        width={100}
+        height={32}
+        priority
+        className="h-auto w-[100px] object-contain"
+      />
 
       <Link
         href="/"

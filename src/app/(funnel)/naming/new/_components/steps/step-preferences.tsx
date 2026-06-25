@@ -35,13 +35,13 @@ const GENDER_OPTIONS: GenderOption[] = [
   {
     value: "남자",
     label: "남아",
-    imageSrc: "/boy.png",
+    imageSrc: "/assets/funnel/boy.png",
     imageAlt: "남아 얼굴 일러스트",
   },
   {
     value: "여자",
     label: "여아",
-    imageSrc: "/girl.png",
+    imageSrc: "/assets/funnel/girl.png",
     imageAlt: "여아 얼굴 일러스트",
   },
 ];
@@ -169,7 +169,7 @@ export default function StepPreferences({
           </div>
 
           <Image
-            src="/funnel-star3.png"
+            src="/assets/funnel/funnel-star3.png"
             alt=""
             width={260}
             height={260}
