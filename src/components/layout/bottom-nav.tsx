@@ -73,9 +73,11 @@ const HIDDEN_PATH_PREFIXES = ["/naming", "/results", "/upgrade", "/login"];
 export default function BottomNav() {
   const pathname = usePathname();
 
-  if (HIDDEN_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
-    return null;
-  }
+  const isHidden =
+    HIDDEN_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    pathname.includes("/result/") ||
+    pathname.endsWith("/detail");
+  if (isHidden) return null;
 
   return (
     <nav

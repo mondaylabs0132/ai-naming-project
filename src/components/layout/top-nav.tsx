@@ -7,7 +7,11 @@ const HIDDEN_PATHS = ["/mypage"];
 export default function TopNav() {
   const pathname = usePathname();
 
-  if (HIDDEN_PATHS.includes(pathname)) return null;
+  const isHidden =
+    HIDDEN_PATHS.includes(pathname) ||
+    pathname.includes("/result") ||
+    pathname.startsWith("/mypage/results");
+  if (isHidden) return null;
 
   return (
     <header className="sticky top-0 z-40 flex items-center px-5 bg-[#F9F7F9]/80 backdrop-blur-md">
