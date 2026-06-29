@@ -25,15 +25,9 @@ export async function POST(request: NextRequest) {
   }
 
   const email = typeof body.email === "string" ? body.email.trim() : "";
-  const token =
-    typeof body.token === "string"
-      ? body.token.trim()
-      : typeof body.code === "string"
-        ? body.code.trim()
-        : "";
+  const emailName = email.includes("@") ? email.split("@")[0] : email;
 
-  // 이메일이 없거나 OTP가 숫자가 아니면 Supabase 검증 전에 요청을 거절함
-  if (!email || !/^\d+$/.test(token)) {
+  if (!email) {
     return NextResponse.json(
       { ok: false, code: "validation_failed" },
       { status: 400 },
@@ -42,22 +36,25 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.verifyOtp({
+  const { error } = await supabase.auth.signInWithOtp({
     email,
-    token,
-    type: "email",
+    options: {
+      data: {
+        email_name: emailName,
+      },
+    },
   });
 
   if (error) {
-    console.error("Verify OTP error:", {
+    console.error("Send OTP error:", {
       message: error.message,
       status: error.status,
       name: error.name,
       code: error.code,
     });
 
-    const code = error.code ?? "verify_failed";
-    const status = RATE_LIMIT_CODES.has(code) ? 429 : 400;
+    const code = error.code ?? "send_failed";
+    const status = RATE_LIMIT_CODES.has(code) ? 429 : 502;
     const retryAfterSeconds = RATE_LIMIT_CODES.has(code)
       ? error.message.match(/(\d+)\s*seconds?/i)?.[1]
       : undefined;

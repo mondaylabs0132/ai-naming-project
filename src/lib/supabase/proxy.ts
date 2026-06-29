@@ -46,7 +46,10 @@ export async function updateSession(request: NextRequest) {
 
   // 로그인하지 않은 사용자가 마이 페이지에 접근하려고 하는 경우 로그인 페이지로 이동
   if (!user && request.nextUrl.pathname.startsWith("/mypage")) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirectTo", "/mypage");
+
+    return NextResponse.redirect(loginUrl);
   }
 
   return supabaseResponse;
