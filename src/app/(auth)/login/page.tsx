@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { SubmitEvent, useEffect, useRef, useState } from "react";
 
 const CODE_LENGTH = 6;
-const RESEND_SECONDS = 60;
+const RESEND_SECONDS = 20;
 const RATE_LIMIT_CODES = new Set([
   "over_request_rate_limit",
   "over_email_send_rate_limit",
