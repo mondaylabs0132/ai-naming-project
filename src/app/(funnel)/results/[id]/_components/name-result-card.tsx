@@ -342,11 +342,11 @@ export default function NameResultCard({ freeName }: { freeName: FreeName }) {
       </p>
 
       <div className="flex justify-center items-center gap-2 mt-3">
-        {RESULT_SLOTS.map((_, i) => (
+        {RESULT_SLOTS.map((slot, i) => (
           <button
             key={i}
             onClick={() => emblaApi?.scrollTo(i)}
-            aria-label={`${i + 1}번 카드`}
+            aria-label={`${slot}번 카드`}
           >
             <div
               style={{

@@ -6,9 +6,11 @@ import Link from "next/link";
 
 export default function GeneratingError({
   message,
+  isSubmitting,
   onRetry,
 }: {
   message: string;
+  isSubmitting: boolean;
   onRetry: () => void;
 }) {
   return (
@@ -40,10 +42,11 @@ export default function GeneratingError({
         <button
           type="button"
           onClick={onRetry}
-          className="flex h-[64px] w-full items-center justify-center gap-2 rounded-lg bg-primary text-[19px] font-semibold leading-none tracking-normal text-white shadow-btn"
+          disabled={isSubmitting}
+          className="flex h-[64px] w-full items-center justify-center gap-2 rounded-lg bg-primary text-[19px] font-semibold leading-none tracking-normal text-white shadow-btn disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RotateCw className="size-5" strokeWidth={2.4} aria-hidden="true" />
-          다시 시도하기
+          {isSubmitting ? "다시 시도 중..." : "다시 시도하기"}
         </button>
         <Link
           href="/"

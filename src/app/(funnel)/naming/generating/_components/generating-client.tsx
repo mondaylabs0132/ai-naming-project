@@ -19,9 +19,13 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
     message: string;
     status: number;
   } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const startedRef = useRef(false);
 
   const generate = useCallback(async () => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     setError(null);
 
     try {
@@ -49,8 +53,10 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
         message: "이름을 생성하지 못했어요. 잠시 후 다시 시도해주세요.",
         status: 0,
       });
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [requestId, router]);
+  }, [isSubmitting, requestId, router]);
 
   // requestId당 한 번만 생성 요청
   useEffect(() => {
@@ -68,6 +74,7 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
     return (
       <GeneratingError
         message={error.message}
+        isSubmitting={isSubmitting}
         onRetry={() => void generate()}
       />
     );
