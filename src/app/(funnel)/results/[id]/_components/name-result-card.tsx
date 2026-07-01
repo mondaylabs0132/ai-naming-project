@@ -1,24 +1,33 @@
 "use client";
 
-import { Lock, Heart } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import ClassNames from "embla-carousel-class-names";
 
-const RESULT_SLOTS = ["01", "02", "03"];
+// 시각적 배치 순서(왼 → 가운데 → 오). 가운데(startIndex 1)가 무료 카드 "01".
+const RESULT_SLOTS = ["02", "01", "03"];
+const FREE_SLOT = "01";
 
-const NAME = {
-  index: "02",
-  name: "서우",
-  icon: "/assets/purple_heart.png",
-  highlight: "",
-  desc: "한결같이 맑고\n바른 아이",
-  tags: ["맑은", "단정한", "밝은"],
+const TOTAL = 20;
+
+export type FreeName = {
+  hangul: string;
+  summary: string;
+  tags: string[];
 };
 
-const TOTAL = 30;
+export default function NameResultCard({ freeName }: { freeName: FreeName }) {
+  const NAME = {
+    index: FREE_SLOT,
+    name: freeName.hangul,
+    icon: "/assets/purple_heart.png",
+    highlight: "",
+    desc: freeName.summary,
+    // DB 태그는 "#태그" 형태 → 렌더에서 다시 # 붙이므로 접두어 제거
+    tags: freeName.tags.map((tag) => tag.replace(/^#/, "")).slice(0, 5),
+  };
 
-export default function NameResultCard() {
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { loop: false, align: "center", containScroll: false, startIndex: 1 },
     [ClassNames()],
@@ -162,8 +171,8 @@ export default function NameResultCard() {
           ref={emblaRef}
         >
           <div className="flex" style={{ gap: "12px" }}>
-            {RESULT_SLOTS.map((slot, i) => {
-              const displayIndex = String(i + 1).padStart(2, "0");
+            {RESULT_SLOTS.map((slot) => {
+              const displayIndex = slot;
               const isLocked = slot !== NAME.index;
               return (
                 <div
