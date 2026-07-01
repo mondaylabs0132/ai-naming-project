@@ -7,11 +7,22 @@ import {
   generateDetailedReason, toDbRow, toApiShape, toApiShapeFromDb,
 } from '../_lib';
 
+// TODO: 임시 차단 코드. 결제 완료 및 요청 소유자 검증을 추가할 때 이 상수와 아래 guard를 제거한다.
+const PREMIUM_GENERATION_ENABLED = false;
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ requestId: string }> },
 ) {
   try {
+    // TODO: 임시 차단 guard. 프리미엄 검증 로직 구현 시 이 if 블록을 제거한다.
+    if (!PREMIUM_GENERATION_ENABLED) {
+      return NextResponse.json(
+        { error: '프리미엄 생성은 아직 사용할 수 없습니다.' },
+        { status: 403 },
+      );
+    }
+
     const { requestId } = await params;
     const supabase = createAdminClient();
 
