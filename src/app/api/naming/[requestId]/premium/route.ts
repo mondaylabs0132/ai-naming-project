@@ -1,86 +1,154 @@
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
-  ohangFromSurvey, fetchSurveyAndSurname, collectNames,
-  generateDetailedReason, toDbRow, toApiShape, toApiShapeFromDb,
-} from '../_lib';
+  ohangFromSurvey,
+  fetchSurveyAndSurname,
+  collectNames,
+  generateDetailedReason,
+  toDbRow,
+  toApiShape,
+  toApiShapeFromDb,
+} from "../_lib";
 
-// TODO: 임시 차단 코드. 결제 완료 및 요청 소유자 검증을 추가할 때 이 상수와 아래 guard를 제거한다.
-const PREMIUM_GENERATION_ENABLED = false;
+// 유료 생성 API 요청이 서버 내부 호출인지 검증할 때 읽는 커스텀 헤더 이름.
+const INTERNAL_JOB_SECRET_HEADER = "x-internal-job-secret";
+const internalJobSecret =
+  process.env.INTERNAL_JOB_SECRET ?? process.env.WEBHOOK_SECRET;
+
+function isInternalGenerationRequest(req: NextRequest) {
+  const actual = req.headers.get(INTERNAL_JOB_SECRET_HEADER);
+
+  return Boolean(internalJobSecret && actual && actual === internalJobSecret);
+}
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ requestId: string }> },
 ) {
   try {
-    // TODO: 임시 차단 guard. 프리미엄 검증 로직 구현 시 이 if 블록을 제거한다.
-    if (!PREMIUM_GENERATION_ENABLED) {
-      return NextResponse.json(
-        { error: '프리미엄 생성은 아직 사용할 수 없습니다.' },
-        { status: 403 },
-      );
-    }
-
     const { requestId } = await params;
     const supabase = createAdminClient();
 
+    // 공개 API의 무단 생성 호출을 막기 위한 게이트.
+    // 내부 자동 생성은 secret 헤더로, 사용자 재시도는 세션+주문 소유권으로 검증한다
+    const isInternal = isInternalGenerationRequest(req);
+
+    let userId: string | null = null;
+    if (!isInternal) {
+      const authClient = await createServerClient();
+      const {
+        data: { user },
+      } = await authClient.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json({ error: "not_found" }, { status: 404 });
+      }
+
+      userId = user.id;
+    }
+
+    // ── 결제 검증: 내부 호출은 완료 주문만, 브라우저 재시도는 완료 주문 + 소유자까지 확인 ──
+    const { data: paidOrder } = await supabase
+      .from("premium_orders")
+      .select("id,user_id")
+      .eq("request_id", requestId)
+      .eq("status", "COMPLETED")
+      .maybeSingle();
+    if (!paidOrder) {
+      return NextResponse.json({ error: "payment_required" }, { status: 403 });
+    }
+    // 브라우저 호출은 내부 secret이 없으므로 결제한 본인인지 주문 소유권을 확인한다.
+    if (userId && paidOrder.user_id !== userId) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    // 유료 결과 생성 완료 시 status를 RESULT_READY로 전이 → 이메일 DB Webhook 발동.
+    // 재시도 도중 GENERATING 유지 + 최종 FAILED 착지는 호출자(complete.ts)가 담당.
+    const markResultReady = () =>
+      supabase
+        .from("naming_requests")
+        .update({ status: "PREMIUM_RESULT_READY" })
+        .eq("id", requestId)
+        .in("status", ["PREMIUM_GENERATING", "FAILED"]);
+
     // ── 캐시 확인 ─────────────────────────────────────────────
     const { data: cachedRows } = await supabase
-      .from('name_candidates')
-      .select('*')
-      .eq('request_id', requestId)
-      .gt('sort_order', 0)
-      .order('sort_order');
+      .from("name_candidates")
+      .select("*")
+      .eq("request_id", requestId)
+      .gt("sort_order", 0)
+      .order("sort_order");
 
     if (cachedRows && cachedRows.length > 0) {
       const { data: surveyRow } = await supabase
-        .from('naming_surveys')
-        .select('birth_year,birth_month,birth_day,birth_time')
-        .eq('request_id', requestId)
+        .from("naming_surveys")
+        .select("birth_year,birth_month,birth_day,birth_time")
+        .eq("request_id", requestId)
         .single();
 
       const { lacking: ohang, count: ohangCount } = surveyRow
         ? ohangFromSurvey(surveyRow as Parameters<typeof ohangFromSurvey>[0])
-        : { lacking: [] as string[], count: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 } };
+        : {
+            lacking: [] as string[],
+            count: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 },
+          };
 
+      await markResultReady();
       return NextResponse.json({
         requestId,
         ohang,
         ohangCount,
-        names: cachedRows.map((r) => toApiShapeFromDb(r as Record<string, unknown>)),
+        names: cachedRows.map((r) =>
+          toApiShapeFromDb(r as Record<string, unknown>),
+        ),
       });
     }
 
     // ── 설문 + 성씨 로드 ───────────────────────────────────────
     const loaded = await fetchSurveyAndSurname(supabase, requestId);
     if (!loaded) {
-      return NextResponse.json({ error: '설문 정보를 찾을 수 없습니다.' }, { status: 404 });
+      return NextResponse.json(
+        { error: "설문 정보를 찾을 수 없습니다." },
+        { status: 404 },
+      );
     }
     const { survey, surname } = loaded;
     const { lacking, count: ohangCount } = ohangFromSurvey(survey);
 
     // 무료 이름 hangul 제외 대상으로 추가
     const { data: freeRow } = await supabase
-      .from('name_candidates')
-      .select('given_name_hangul')
-      .eq('request_id', requestId)
-      .eq('sort_order', 0)
+      .from("name_candidates")
+      .select("given_name_hangul")
+      .eq("request_id", requestId)
+      .eq("sort_order", 0)
       .single();
 
     const usedNames = new Set<string>(
-      freeRow ? [(freeRow as { given_name_hangul: string }).given_name_hangul] : [],
+      freeRow
+        ? [(freeRow as { given_name_hangul: string }).given_name_hangul]
+        : [],
     );
 
     // ── 이름 생성 ─────────────────────────────────────────────
     const pool = await collectNames({
-      supabase, surname, survey, lacking,
-      target: 19, maxAttempts: 4, model: 'gpt-4o', usedNames,
+      supabase,
+      surname,
+      survey,
+      lacking,
+      target: 19,
+      maxAttempts: 4,
+      model: "gpt-4o",
+      usedNames,
     });
 
     if (pool.length === 0) {
-      return NextResponse.json({ error: '이름 생성에 실패했습니다.' }, { status: 500 });
+      return NextResponse.json(
+        { error: "이름 생성에 실패했습니다." },
+        { status: 500 },
+      );
     }
 
     pool.sort((a, b) => b.score - a.score);
@@ -88,38 +156,52 @@ export async function POST(
 
     const { map: detailMap } = await generateDetailedReason(
       top19.map((n) => ({
-        hangul: n.hangul, hanja1: n.hanja1, hanja2: n.hanja2,
-        meaning1: n.meaning1, meaning2: n.meaning2,
-        hangul1: n.hangul1, hangul2: n.hangul2, reason: n.reason,
+        hangul: n.hangul,
+        hanja1: n.hanja1,
+        hanja2: n.hanja2,
+        meaning1: n.meaning1,
+        meaning2: n.meaning2,
+        hangul1: n.hangul1,
+        hangul2: n.hangul2,
+        reason: n.reason,
       })),
-      'gpt-4o',
+      "gpt-4o",
     );
 
     // ── DB 저장 ───────────────────────────────────────────────
-    const { error: insertErr } = await supabase
-      .from('name_candidates')
-      .insert(
-        top19.map((n, i) =>
-          toDbRow({
-            requestId, sortOrder: i + 1, isFreeName: false,
-            surname, name: n, detail: detailMap[n.hangul], lacking,
-          }),
-        ),
-      );
+    const { error: insertErr } = await supabase.from("name_candidates").insert(
+      top19.map((n, i) =>
+        toDbRow({
+          requestId,
+          sortOrder: i + 1,
+          isFreeName: false,
+          surname,
+          name: n,
+          detail: detailMap[n.hangul],
+          lacking,
+        }),
+      ),
+    );
 
     if (insertErr) {
-      console.error('[premium] name_candidates 삽입 실패:', insertErr.message);
-      return NextResponse.json({ error: 'DB 저장 실패' }, { status: 500 });
+      console.error("[premium] name_candidates 삽입 실패:", insertErr.message);
+      return NextResponse.json({ error: "DB 저장 실패" }, { status: 500 });
     }
 
+    await markResultReady();
     return NextResponse.json({
       requestId,
       ohang: lacking,
       ohangCount,
-      names: top19.map((n, i) => toApiShape(n, detailMap[n.hangul], lacking, i + 1)),
+      names: top19.map((n, i) =>
+        toApiShape(n, detailMap[n.hangul], lacking, i + 1),
+      ),
     });
   } catch (e) {
-    console.error('[/api/naming/[requestId]/premium]', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+    console.error("[/api/naming/[requestId]/premium]", e);
+    return NextResponse.json(
+      { error: "서버 오류가 발생했습니다." },
+      { status: 500 },
+    );
   }
 }

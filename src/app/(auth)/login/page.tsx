@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SubmitEvent, useEffect, useRef, useState } from "react";
+import { SubmitEvent, Suspense, useEffect, useRef, useState } from "react";
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 20;
@@ -58,6 +58,15 @@ function getVerifyOtpMessage(error: AuthErrorResponse) {
 }
 
 export default function LoginPage() {
+  // useSearchParams는 Suspense 경계가 필요 (Next 16 prerender 규칙)
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = getSafeRedirectTo(searchParams.get("redirectTo"));

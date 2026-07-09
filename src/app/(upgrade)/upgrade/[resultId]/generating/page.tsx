@@ -1,49 +1,252 @@
+"use client";
+
 import {
-  CheckCircle2,
-  ShieldCheck,
   Activity,
-  Siren,
+  CheckCircle2,
   RefreshCcw,
-} from 'lucide-react';
-import Image from 'next/image';
+  ShieldCheck,
+  Siren,
+} from "lucide-react";
+import Image from "next/image";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+
+import { createClient } from "@/lib/supabase/client";
 
 const PROGRESS_PERCENT = 68;
+const POLL_INTERVAL = 2000;
+const SUPPORT_EMAIL = "support@naming.app";
 
 const STEPS = [
   {
-    title: '기본 정보 분석',
-    desc: '사주, 오행, 음양오행, 수리격 분석 완료',
-    status: 'done' as const,
+    title: "기본 정보 분석",
+    desc: "사주, 오행, 음양오행, 수리격 분석 완료",
+    status: "done" as const,
   },
   {
-    title: '이름 후보 분석 중',
-    desc: '의미, 발음, 한자, 활용도, 선호도 분석 중',
-    status: 'active' as const,
+    title: "이름 후보 분석 중",
+    desc: "의미, 발음, 한자, 활용도, 선호도 분석 중",
+    status: "active" as const,
   },
   {
-    title: '전문가 최종 검토',
-    desc: '전문가가 최종적으로 검토하고 순위를 매기는 중',
-    status: 'pending' as const,
+    title: "전문가 최종 검토",
+    desc: "전문가가 최종적으로 검토하고 순위를 매기는 중",
+    status: "pending" as const,
   },
   {
-    title: '결과 정리 및 제공',
-    desc: '20개의 이름 결과를 정리하여 보여드릴게요',
-    status: 'pending' as const,
+    title: "결과 정리 및 제공",
+    desc: "20개의 이름 결과를 정리하여 보여드릴게요",
+    status: "pending" as const,
   },
 ];
 
 const ANALYZING_TAGS = [
-  { label: '이름 의미 해석', active: true },
-  { label: '음양 조화 분석', active: false },
-  { label: '발음 조화 분석', active: false },
-  { label: '한자 후보 탐색', active: false },
-  { label: '선호도 데이터 반영', active: false },
+  { label: "이름 의미 해석", active: true },
+  { label: "음양 조화 분석", active: false },
+  { label: "발음 조화 분석", active: false },
+  { label: "한자 후보 탐색", active: false },
+  { label: "선호도 데이터 반영", active: false },
 ];
 
+// 화면 진행 단계: confirming(결제 승인 확인) · generating(생성 완료 대기 폴링) · pending(결제 미확정 폴링) · failed(생성 실패)
+type Phase = "confirming" | "generating" | "pending" | "failed";
+
 export default function PremiumGeneratingPage() {
+  // useSearchParams는 Suspense 경계가 필요 (Next 16 prerender 규칙)
+  return (
+    <Suspense fallback={<AnalyzingView pending={false} />}>
+      <GeneratingInner />
+    </Suspense>
+  );
+}
+
+function GeneratingInner() {
+  const router = useRouter();
+  const params = useParams<{ resultId: string }>();
+  const resultId = params.resultId;
+  const searchParams = useSearchParams();
+  const supabase = useMemo(() => createClient(), []);
+
+  const paymentKey = searchParams.get("paymentKey");
+  const orderId = searchParams.get("orderId");
+  const amount = searchParams.get("amount");
+
+  // 시작 단계는 도착 경로로 갈린다.
+  // - 카드 결제: Toss가 successUrl에 paymentKey·orderId·amount를 붙여 보냄 → 승인 확인(confirming)부터
+  // - 0원 결제/직접 진입: 결제 쿼리 없음, 확인할 게 없으니 곧장 AI 생성 대기 폴링(generating)
+  const [phase, setPhase] = useState<Phase>(
+    paymentKey && orderId && amount ? "confirming" : "generating",
+  );
+  const confirmedRef = useRef(false);
+
+  // ── confirm - 1회만
+  useEffect(() => {
+    if (!paymentKey || !orderId || !amount) return;
+    if (confirmedRef.current) return;
+    confirmedRef.current = true;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/checkout/confirm", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            paymentKey,
+            orderId,
+            amount: Number(amount),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.ok) {
+          setPhase("generating"); // 성공 → status 폴링
+          return;
+        }
+        if (res.status === 202 && data.pending) {
+          setPhase("pending"); // B(미확정) → premium_orders 폴링
+          return;
+        }
+        // A(명확한 실패) → checkout으로 에러 안내
+        router.replace(
+          `/upgrade/${resultId}/checkout?error=${encodeURIComponent(
+            data.code ?? "payment_failed",
+          )}`,
+        );
+      } catch {
+        setPhase("pending"); // 네트워크 오류 → 미확정 취급, 폴링으로 확인
+      }
+    })();
+  }, [paymentKey, orderId, amount, resultId, router]);
+
+  // ── generating: naming_requests.status 폴링 ──
+  useEffect(() => {
+    if (phase !== "generating") return;
+    let alive = true;
+
+    const tick = async () => {
+      const { data } = await supabase
+        .from("naming_requests")
+        .select("status")
+        .eq("id", resultId)
+        .single();
+      if (!alive) return;
+      const status = data?.status;
+      if (status === "PREMIUM_RESULT_READY") {
+        router.replace(`/upgrade/${resultId}/result`);
+      } else if (status === "FAILED") {
+        setPhase("failed");
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, POLL_INTERVAL);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [phase, resultId, router, supabase]);
+
+  // ── pending(B): premium_orders.status 폴링  ──
+  useEffect(() => {
+    if (phase !== "pending") return;
+    let alive = true;
+
+    const tick = async () => {
+      const { data } = await supabase
+        .from("premium_orders")
+        .select("status")
+        .eq("request_id", resultId)
+        .single();
+      if (!alive) return;
+      const status = data?.status;
+      if (status === "COMPLETED") {
+        setPhase("generating"); // naming_requests가 PREMIUM_GENERATING으로 넘어감
+      } else if (status === "FAILED" || status === "CANCELED") {
+        router.replace(
+          `/upgrade/${resultId}/checkout?error=${encodeURIComponent(status)}`,
+        );
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, POLL_INTERVAL);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [phase, resultId, router, supabase]);
+
+  async function handleRetry() {
+    setPhase("generating"); // 낙관적 전환 → 폴링이 RESULT_READY/FAILED로 재판정
+    try {
+      await fetch(`/api/naming/${resultId}/premium`, { method: "POST" });
+    } catch {
+      // 폴링이 상태를 다시 잡아줌
+    }
+  }
+
+  if (phase === "failed") {
+    return <GenerationFailedView resultId={resultId} onRetry={handleRetry} />;
+  }
+
+  return <AnalyzingView pending={phase === "pending"} />;
+}
+
+/** 생성 실패 화면 — 결제 성공 후 AI 생성만 실패한 상태. */
+function GenerationFailedView({
+  resultId,
+  onRetry,
+}: {
+  resultId: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="px-5 py-10 text-center">
+      <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary-pale">
+        <Siren size={28} className="text-primary" />
+      </div>
+
+      <h1 className="mt-5 text-page-title font-extrabold leading-[1.35] tracking-[-0.4px] text-ink">
+        결과 생성 중 문제가 발생했어요
+      </h1>
+
+      {/* 1. 결제 정상 안심 문구(필수) */}
+      <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
+        <p className="text-[14px] leading-[1.7] text-ink">
+          <span className="font-bold text-primary">
+            결제는 정상 완료되었습니다.
+          </span>{" "}
+          결과 생성 중 문제가 발생했어요.{" "}
+          <span className="font-bold">요금이 다시 청구되지 않습니다.</span>
+        </p>
+      </div>
+
+      {/* 2. 다시 시도 */}
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-btn font-bold text-white shadow-btn transition hover:bg-primary-light"
+      >
+        <RefreshCcw size={18} />
+        다시 시도
+      </button>
+
+      {/* 3. 문의 안내 */}
+      <p className="mt-4 text-caption leading-[1.7] text-ink-muted break-keep">
+        문제가 계속되면 문의해주세요.
+        <br />
+        문의: {SUPPORT_EMAIL}
+        <br />
+        주문번호: {resultId}
+      </p>
+    </div>
+  );
+}
+
+/** 결제 확정 후 생성 대기(분석 중) 화면. pending이면 "결제 확인 중" 배너를 얹는다. */
+function AnalyzingView({ pending }: { pending: boolean }) {
   return (
     <div className="px-5 py-4 text-center">
-      {/* 결제 완료 */}
       <Image
         src="/assets/check.png"
         alt="check"
@@ -53,7 +256,7 @@ export default function PremiumGeneratingPage() {
       />
 
       <p className="mt-3 text-caption font-semibold text-primary">
-        결제가 완료되었어요!
+        {pending ? "결제 확인 중이에요..." : "결제가 완료되었어요!"}
       </p>
 
       <h1 className="mt-2 text-page-title font-extrabold leading-[1.35] tracking-[-0.4px]">
@@ -88,7 +291,7 @@ export default function PremiumGeneratingPage() {
             style={{
               width: `${PROGRESS_PERCENT}%`,
               background:
-                'linear-gradient(to right, var(--color-ink), var(--color-primary))',
+                "linear-gradient(to right, var(--color-ink), var(--color-primary))",
             }}
           />
         </div>
@@ -106,46 +309,46 @@ export default function PremiumGeneratingPage() {
         {STEPS.map((step, i) => (
           <div key={step.title} className="flex gap-3">
             <div className="flex flex-col items-center">
-              {step.status === 'done' && (
+              {step.status === "done" && (
                 <div
                   className="flex items-center justify-center rounded-full bg-primary text-surface"
-                  style={{ width: '24px', height: '24px' }}
+                  style={{ width: "24px", height: "24px" }}
                 >
                   <CheckCircle2 size={14} />
                 </div>
               )}
 
-              {step.status === 'active' && (
+              {step.status === "active" && (
                 <div
                   className="flex items-center justify-center rounded-full border-2 border-primary"
-                  style={{ width: '24px', height: '24px' }}
+                  style={{ width: "24px", height: "24px" }}
                 >
                   <div
                     className="rounded-full bg-primary"
-                    style={{ width: '10px', height: '10px' }}
+                    style={{ width: "10px", height: "10px" }}
                   />
                 </div>
               )}
 
-              {step.status === 'pending' && (
+              {step.status === "pending" && (
                 <div
                   className="rounded-full border-2 border-divider"
-                  style={{ width: '24px', height: '24px' }}
+                  style={{ width: "24px", height: "24px" }}
                 />
               )}
 
               {i < STEPS.length - 1 && (
                 <div
                   className="flex-1 border-l-2 border-dashed border-primary-muted"
-                  style={{ width: 0, marginTop: '4px', marginBottom: '4px' }}
+                  style={{ width: 0, marginTop: "4px", marginBottom: "4px" }}
                 />
               )}
             </div>
 
-            <div className={i < STEPS.length - 1 ? 'pb-5' : ''}>
+            <div className={i < STEPS.length - 1 ? "pb-5" : ""}>
               <p
                 className={`text-[14px] font-semibold ${
-                  step.status === 'active' ? 'text-primary' : 'text-ink'
+                  step.status === "active" ? "text-primary" : "text-ink"
                 }`}
               >
                 {step.title}
@@ -176,9 +379,9 @@ export default function PremiumGeneratingPage() {
       <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-1.5">
           <p className="flex items-center gap-2 font-semibold text-ink">
-            <div className="text-primary bg-primary-pale p-1 rounded-xs flex items-center justify-center">
+            <span className="text-primary bg-primary-pale p-1 rounded-xs flex items-center justify-center">
               <Activity size={16} className="text-primary" />
-            </div>
+            </span>
             현재 분석 중인 요소
           </p>
 
@@ -196,14 +399,14 @@ export default function PremiumGeneratingPage() {
               <span
                 className={`flex items-center gap-1 ${
                   tag.active
-                    ? 'font-semibold text-primary'
-                    : 'font-normal text-ink-muted'
+                    ? "font-semibold text-primary"
+                    : "font-normal text-ink-muted"
                 }`}
               >
                 {tag.active && (
                   <span
                     className="rounded-full bg-primary"
-                    style={{ width: '6px', height: '6px' }}
+                    style={{ width: "6px", height: "6px" }}
                   />
                 )}
 

@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import {
   Check,
   Cloud,
@@ -12,7 +14,14 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { createClient } from "@/lib/supabase/client";
+
 const PRODUCT_PRICE = 19900;
+
+const COUPON_LABEL: Record<string, string> = {
+  PRE_REGISTER: "사전응모자 할인 쿠폰",
+  REANALYSIS: "무료재분석 쿠폰",
+};
 
 type Coupon = {
   id: string;
@@ -21,24 +30,131 @@ type Coupon = {
   discount: number;
 };
 
-// TODO: 실제 보유 쿠폰 API 연동 시 교체. 빈 배열이면 "보유한 쿠폰이 없어요" 상태로 렌더링됨.
-const COUPONS: Coupon[] = [
-  { id: "pre-signup", label: "사전응모자 할인 쿠폰", discount: 10000 },
-  { id: "free-reanalysis", label: "무료재분석 쿠폰", discount: 19900 },
-];
+const ERROR_MESSAGE: Record<string, string> = {
+  invalid_coupon: "선택한 쿠폰을 사용할 수 없어요. 다시 확인해주세요.",
+  coupon_in_use: "이 쿠폰은 이미 다른 결제에 사용 중이에요.",
+  already_paid: "이미 결제가 완료된 결과예요.",
+  order_in_progress: "결제가 진행 중이에요. 잠시 후 다시 시도해주세요.",
+  forbidden: "접근 권한이 없어요.",
+  unauthorized: "로그인이 필요해요.",
+  amount_mismatch:
+    "결제 금액이 일치하지 않아 결제를 중단했어요. 다시 시도해주세요.",
+  response_mismatch: "결제 확인에 실패했어요. 다시 시도해주세요.",
+  CANCELED: "결제가 취소되었어요.",
+  ABORTED: "결제가 중단되었어요.",
+  EXPIRED: "결제 시간이 만료되었어요. 다시 시도해주세요.",
+};
+
+function messageFor(code: string | null, message: string | null) {
+  if (code && ERROR_MESSAGE[code]) return ERROR_MESSAGE[code];
+  if (message) return message;
+  if (code) return "결제를 완료하지 못했어요. 다시 시도해주세요.";
+  return null;
+}
 
 function formatWon(amount: number) {
   return `${amount.toLocaleString("ko-KR")}원`;
 }
 
-export default function CheckoutClient({ resultId }: { resultId: string }) {
-  const [selectedId, setSelectedId] = useState<string | null>(
-    COUPONS[0]?.id ?? null,
+export default function CheckoutClient({
+  resultId,
+  initialErrorCode = null,
+  initialErrorMessage = null,
+}: {
+  resultId: string;
+  initialErrorCode?: string | null;
+  initialErrorMessage?: string | null;
+}) {
+  const router = useRouter();
+
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponsLoaded, setCouponsLoaded] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState<string | null>(
+    messageFor(initialErrorCode, initialErrorMessage),
   );
 
-  const selectedCoupon = COUPONS.find((c) => c.id === selectedId) ?? null;
+  // 본인 활성 쿠폰 로드
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("coupons")
+        .select("id, type, discount_amount, expires_at")
+        .eq("status", "ACTIVE")
+        .gt("expires_at", new Date().toISOString())
+        .order("discount_amount", { ascending: false }); // 할인 큰 쿠폰부터
+
+      if (!alive) return;
+      const list: Coupon[] = (data ?? []).map((c) => ({
+        id: c.id as string,
+        label: COUPON_LABEL[c.type as string] ?? "할인 쿠폰",
+        discount: c.discount_amount as number,
+      }));
+      setCoupons(list);
+      setSelectedId(list[0]?.id ?? null);
+      setCouponsLoaded(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const selectedCoupon = coupons.find((c) => c.id === selectedId) ?? null;
   const discount = selectedCoupon ? selectedCoupon.discount : 0;
-  const total = PRODUCT_PRICE - discount;
+  const total = Math.max(PRODUCT_PRICE - discount, 0);
+
+  async function handlePay() {
+    if (paying) return;
+    setPaying(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/checkout/prepare", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          requestId: resultId,
+          couponId: selectedId ?? undefined,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setError(
+          ERROR_MESSAGE[data?.code] ??
+            "결제를 준비하지 못했어요. 잠시 후 다시 시도해주세요.",
+        );
+        setPaying(false);
+        return;
+      }
+
+      // 0원(REANALYSIS) → 결제창 없이 서버가 이미 완료 처리, 바로 generating 페이지로 이동
+      if (data.free) {
+        router.push(`/upgrade/${resultId}/generating`);
+        return;
+      }
+
+      // Toss 결제창. 실제 결제금액은 서버 prepare의 amount만 사용.
+      const tossPayments = await loadTossPayments(data.clientKey);
+      const payment = tossPayments.payment({ customerKey: data.customerKey });
+      await payment.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: data.amount },
+        orderId: data.orderId,
+        orderName: data.orderName,
+        successUrl: data.successUrl,
+        failUrl: data.failUrl,
+      });
+      // 성공 시 successUrl로 redirect. 여기 도달하면 창을 닫았거나 취소한 경우.
+      setPaying(false);
+    } catch {
+      // 유저 취소(USER_CANCEL) 포함 — 버튼 복구 + 안내
+      setError("결제를 완료하지 못했어요. 다시 시도해주세요.");
+      setPaying(false);
+    }
+  }
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -119,7 +235,7 @@ export default function CheckoutClient({ resultId }: { resultId: string }) {
               </h2>
             </div>
 
-            {COUPONS.length === 0 ? (
+            {couponsLoaded && coupons.length === 0 ? (
               <div className="mt-4 flex flex-col items-center rounded-lg bg-surface-section py-10 text-center">
                 <Image
                   src="/assets/checkout/no-coupon.png"
@@ -152,7 +268,7 @@ export default function CheckoutClient({ resultId }: { resultId: string }) {
                 )}
 
                 <ul className="mt-3 space-y-2">
-                  {COUPONS.map((coupon) => {
+                  {coupons.map((coupon) => {
                     const isSelected = coupon.id === selectedId;
                     return (
                       <li key={coupon.id}>
@@ -247,13 +363,19 @@ export default function CheckoutClient({ resultId }: { resultId: string }) {
 
         {/* ── 하단 결제 버튼 ── */}
         <div className="sticky bottom-0 bg-bg px-5 pb-6 pt-2">
+          {error && (
+            <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-center text-caption font-medium text-red-600">
+              {error}
+            </p>
+          )}
           <button
             type="button"
-            data-result-id={resultId}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-btn font-bold text-white shadow-btn transition hover:bg-primary-light"
+            onClick={handlePay}
+            disabled={paying}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-btn font-bold text-white shadow-btn transition hover:bg-primary-light disabled:opacity-60"
           >
             <Lock size={18} />
-            결제하기
+            {paying ? "결제 준비 중..." : `${formatWon(total)} 결제하기`}
           </button>
           <p className="mt-3 flex items-center justify-center gap-1.5 text-nav text-ink-muted min-[400px]:text-caption">
             <ShieldCheck className="size-3 shrink-0 text-ink-light min-[400px]:size-3.5" />

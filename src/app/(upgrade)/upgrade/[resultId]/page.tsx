@@ -83,6 +83,7 @@ export default function UpgradeEmailPage({
         ) : (
           <OtpStep
             email={email}
+            resultId={resultId}
             onChangeEmail={() => setStep("email")}
             onVerified={() => router.push(`/upgrade/${resultId}/checkout`)}
           />
@@ -210,10 +211,12 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
 
 function OtpStep({
   email,
+  resultId,
   onChangeEmail,
   onVerified,
 }: {
   email: string;
+  resultId: string;
   onChangeEmail: () => void;
   onVerified: () => void;
 }) {
@@ -319,7 +322,8 @@ function OtpStep({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, token: code }),
+        // resultId 전달 → verify가 익명 무료 결과를 로그인 유저에 귀속
+        body: JSON.stringify({ email, token: code, resultId }),
       });
 
       if (!response.ok) {

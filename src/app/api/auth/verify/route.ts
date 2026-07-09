@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const RATE_LIMIT_CODES = new Set([
   "over_request_rate_limit",
@@ -40,9 +44,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const resultId =
+    typeof body.resultId === "string" ? body.resultId.trim() : "";
+
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.verifyOtp({
+  const { data: verifyData, error } = await supabase.auth.verifyOtp({
     email,
     token,
     type: "email",
@@ -70,6 +77,17 @@ export async function POST(request: NextRequest) {
       },
       { status },
     );
+  }
+
+  // 인증 성공 시 익명 무료 결과(user_id NULL)를 로그인 유저에 귀속.
+  const userId = verifyData.user?.id;
+  if (userId && resultId && UUID_RE.test(resultId)) {
+    const admin = createAdminClient();
+    await admin
+      .from("naming_requests")
+      .update({ user_id: userId })
+      .eq("id", resultId)
+      .is("user_id", null);
   }
 
   return NextResponse.json({ ok: true });
