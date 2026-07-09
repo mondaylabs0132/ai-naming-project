@@ -20,6 +20,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
+      '@tosspayments/tosspayments-sdk':
+        specifier: ^2.7.1
+        version: 2.7.1
       embla-carousel-class-names:
         specifier: ^8.6.0
         version: 8.6.0(embla-carousel@8.6.0)
@@ -600,6 +603,9 @@ packages:
 
   '@tailwindcss/postcss@4.3.0':
     resolution: {integrity: sha512-Jm05Tjx+9yCLGv5qw1c+84Psds8MnyrEQYCB+FFk2lgGiUjlRqdxke4mVTuYrj2xnVZqKim2Apr5ySuQRYAw/w==}
+
+  '@tosspayments/tosspayments-sdk@2.7.1':
+    resolution: {integrity: sha512-nHInxgFvFGm1VtaCS+IPLdtmE+B2a+MCYE9Meq0aR/0L0hAgoGllLS4ciQGb1RtLvp3mHcj3lL80XMi4BqQ7uw==}
 
   '@tybys/wasm-util@0.10.2':
     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
@@ -2537,6 +2543,8 @@ snapshots:
       '@tailwindcss/oxide': 4.3.0
       postcss: 8.5.14
       tailwindcss: 4.3.0
+
+  '@tosspayments/tosspayments-sdk@2.7.1': {}
 
   '@tybys/wasm-util@0.10.2':
     dependencies:

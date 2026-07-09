@@ -4,6 +4,7 @@ import {
 } from "@/app/(funnel)/naming/new/_lib/schema";
 import { mapSurveyToRow } from "@/app/(funnel)/naming/new/_lib/survey-mapper";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -23,10 +24,16 @@ export async function POST(request: Request) {
     );
   }
 
+  // 로그인 상태면 새 결과를 처음부터 본인 소유로 귀속 → 이후 재-OTP 불필요
+  const authClient = await createClient();
+  const {
+    data: { user },
+  } = await authClient.auth.getUser();
+
   const supabase = createAdminClient();
   const { data: requestRow, error: requestError } = await supabase
     .from("naming_requests")
-    .insert({ status: "FREE_ACTIVE" })
+    .insert({ status: "FREE_ACTIVE", user_id: user?.id ?? null })
     .select("id")
     .single();
 

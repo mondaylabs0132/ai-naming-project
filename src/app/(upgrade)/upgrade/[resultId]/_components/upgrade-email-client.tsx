@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { SubmitEvent, Suspense, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { SubmitEvent, useEffect, useRef, useState } from "react";
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 20;
@@ -16,14 +16,6 @@ type AuthErrorResponse = {
   code?: string;
   retryAfterSeconds?: string;
 };
-
-function getSafeRedirectTo(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
-  }
-
-  return value;
-}
 
 function getSendOtpMessage(error: AuthErrorResponse) {
   if (error.code === "validation_failed") {
@@ -51,25 +43,18 @@ function getVerifyOtpMessage(error: AuthErrorResponse) {
   if (error.code && RATE_LIMIT_CODES.has(error.code)) {
     return error.retryAfterSeconds
       ? `요청이 너무 많아요. ${error.retryAfterSeconds}초 후 다시 시도해주세요.`
-      : "인증 요청이 너무 많아요. 1분 후 다시 시도해주세요.";
+      : "인증 요청이 너무 많아요. 잠시 후 다시 시도해주세요.";
   }
 
   return "인증번호를 확인해주세요.";
 }
 
-export default function LoginPage() {
-  // useSearchParams는 Suspense 경계가 필요 (Next 16 prerender 규칙)
-  return (
-    <Suspense fallback={null}>
-      <LoginInner />
-    </Suspense>
-  );
-}
-
-function LoginInner() {
+export default function UpgradeEmailClient({
+  resultId,
+}: {
+  resultId: string;
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = getSafeRedirectTo(searchParams.get("redirectTo"));
   const [step, setStep] = useState<"email" | "otp">("email");
   const [email, setEmail] = useState("");
 
@@ -97,8 +82,9 @@ function LoginInner() {
         ) : (
           <OtpStep
             email={email}
+            resultId={resultId}
             onChangeEmail={() => setStep("email")}
-            onVerified={() => router.push(redirectTo)}
+            onVerified={() => router.push(`/upgrade/${resultId}/checkout`)}
           />
         )}
 
@@ -150,14 +136,14 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
   }
 
   return (
-    <section className="mt-[78px] mb-12" aria-labelledby="login-email-title">
+    <section className="mt-[78px] mb-12" aria-labelledby="upgrade-email-title">
       <h1
-        id="login-email-title"
+        id="upgrade-email-title"
         className="text-[30px] font-extrabold leading-[1.45] tracking-[-0.4px] text-ink"
       >
         이메일로
         <br />
-        <span className="text-primary-light">간편하게</span> 로그인하세요
+        <span className="text-primary-light">간편하게</span> 시작하세요
       </h1>
 
       <p className="mt-8 text-[16px] font-semibold leading-[1.65] tracking-[-0.2px] text-ink-muted">
@@ -167,11 +153,11 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
       </p>
 
       <form onSubmit={handleSubmit} className="mt-[50px] space-y-5">
-        <label htmlFor="login-email" className="sr-only">
+        <label htmlFor="upgrade-email" className="sr-only">
           이메일
         </label>
         <input
-          id="login-email"
+          id="upgrade-email"
           name="email"
           type="email"
           required
@@ -193,7 +179,7 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
           {message && (
             <p
               aria-live="polite"
-              className="text-left text-[14px] font-semibold leading-[1.45] tracking-[-0.1px] text-primary"
+              className="text-[14px] font-semibold leading-[1.45] tracking-[-0.1px] text-primary text-left"
             >
               {message}
             </p>
@@ -224,10 +210,12 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
 
 function OtpStep({
   email,
+  resultId,
   onChangeEmail,
   onVerified,
 }: {
   email: string;
+  resultId: string;
   onChangeEmail: () => void;
   onVerified: () => void;
 }) {
@@ -333,7 +321,8 @@ function OtpStep({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, token: code }),
+        // resultId 전달 → verify가 익명 무료 결과를 로그인 유저에 귀속
+        body: JSON.stringify({ email, token: code, resultId }),
       });
 
       if (!response.ok) {
@@ -351,9 +340,9 @@ function OtpStep({
   }
 
   return (
-    <section className="mt-[78px]" aria-labelledby="login-sent-title">
+    <section className="mt-[78px]" aria-labelledby="upgrade-sent-title">
       <h1
-        id="login-sent-title"
+        id="upgrade-sent-title"
         className="text-[30px] font-extrabold leading-[1.45] tracking-[-0.4px] text-ink"
       >
         이메일로 전송된
@@ -433,7 +422,7 @@ function OtpStep({
           {verifyMessage && (
             <p
               aria-live="polite"
-              className="mt-4 text-left text-[14px] font-semibold leading-[1.45] tracking-[-0.1px] text-primary"
+              className="mt-4 text-[14px] font-semibold leading-[1.45] tracking-[-0.1px] text-primary text-left"
             >
               {verifyMessage}
             </p>
@@ -462,7 +451,7 @@ function OtpStep({
           {resendMessage && (
             <p
               aria-live="polite"
-              className="text-left text-[14px] font-semibold leading-[1.45] tracking-[-0.1px] text-primary"
+              className="text-[14px] font-semibold leading-[1.45] tracking-[-0.1px] text-primary text-left"
             >
               {resendMessage}
             </p>
