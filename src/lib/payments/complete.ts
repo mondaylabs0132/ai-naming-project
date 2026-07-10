@@ -3,7 +3,7 @@ import "server-only";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { markCouponUsed } from "./coupons";
+import { markCouponUsed, ensureReanalysisCoupon } from "./coupons";
 import type { PaymentAttempt, PremiumOrder } from "./orders";
 import type { TossPayment } from "./toss";
 
@@ -122,9 +122,18 @@ export async function completeOrder(
         user_id: order.user_id,
       })
       .eq("id", order.request_id)
-      .in("status", ["FREE_ACTIVE", "FREE_EXPIRED"]);
+      .in("status", ["FREE_ACTIVE", "FREE_EXPIRED"]); // 상태가 무료인 경우에만
     if (error) throw error;
   }
+
+  // '출생 전' 결제자에게 무료재분석 쿠폰을 발급한다.
+  //   1) 여기서 매 호출 발급 시도 (confirm·webhook·재시도마다)
+  //   2) 헬퍼가 멱등(UNIQUE) → 여러 번 불려도 1장, 실패해도 다음 호출이 재시도
+  //   3) 그래도 빠지면 pg_cron 잡(reconcile_reanalysis_coupons)이 매시 최종 보정
+  await ensureReanalysisCoupon(admin, {
+    requestId: order.request_id,
+    userId: order.user_id,
+  });
 
   // 응답을 먼저 반환하고 백그라운드로 생성 트리거 (generating 페이지가 status 폴링).
   after(() => triggerGeneration(admin, order.request_id));
