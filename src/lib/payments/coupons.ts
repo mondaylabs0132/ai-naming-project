@@ -50,3 +50,37 @@ export async function markCouponUsed(admin: SupabaseClient, couponId: string) {
     .eq("status", "ACTIVE");
   if (error) throw error;
 }
+
+/**
+ * '출생 전' 결제 완료자에게 무료재분석 쿠폰을 1장 발급한다.
+ *
+ * - 대상 request 가 '출생 전'이 아니면 아무것도 하지 않는다.
+ * - UNIQUE(original_request_id) 로 멱등 — 혹시 두 번 불려도 DB가 중복을 막는다.
+ * - 쿠폰 발급 실패가 결제 확정(본 흐름)을 절대 막지 않도록, 에러는 삼키고 로깅만 한다.
+ */
+export async function ensureReanalysisCoupon(
+  admin: SupabaseClient,
+  params: { requestId: string; userId: string },
+) {
+  // 1) 대상 request 가 '출생 전'인지 확인
+  const { data: survey } = await admin
+    .from("naming_surveys")
+    .select("birth_status")
+    .eq("request_id", params.requestId)
+    .maybeSingle();
+
+  if (survey?.birth_status !== "BEFORE_BIRTH") return; // 출생 후 → 발급 안 함
+
+  // 2) 쿠폰 발급
+  const { error } = await admin.from("coupons").insert({
+    user_id: params.userId,
+    original_request_id: params.requestId,
+    type: "REANALYSIS",
+    discount_amount: 19900,
+  });
+
+  // 23505(unique_violation) = 이미 발급됨 → 정상으로 간주. 그 외 에러만 로깅.
+  if (error && error.code !== "23505") {
+    console.error("ensureReanalysisCoupon failed", error);
+  }
+}
