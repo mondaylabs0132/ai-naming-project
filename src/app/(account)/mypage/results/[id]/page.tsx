@@ -33,5 +33,5 @@ export default async function MyPageResultDetail({
   // 3. 준비된 유료 결과만 재열람 가능
   if (nr.status !== "PREMIUM_RESULT_READY") notFound();
 
-  return <ResultPageView requestId={id} />;
+  return <ResultPageView requestId={id} userId={user.id} />;
 }
