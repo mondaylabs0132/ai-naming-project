@@ -4,7 +4,8 @@ import { RotateCw } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function ResultError({
+// 결과 조회 실패 시 라우트 error.tsx에서 공용으로 쓰는 에러 화면.
+export default function ResultErrorView({
   error,
   reset,
 }: {
