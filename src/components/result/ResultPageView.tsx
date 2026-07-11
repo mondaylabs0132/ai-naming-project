@@ -1,15 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
   Gift,
   Heart,
+  RotateCw,
   ShieldCheck,
   SlidersHorizontal,
   Star,
   StarHalf,
+  TriangleAlert,
   Users,
 } from "lucide-react";
 
@@ -70,20 +72,46 @@ export default function ResultPageView({
 }) {
   const [activeSort, setActiveSort] = useState<"추천도" | "가나다">("추천도");
   const [names, setNames] = useState<ResultName[]>([]);
-  const [loadError, setLoadError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [isFavoritesLoading, setIsFavoritesLoading] = useState(false);
+  const [hasFavoritesError, setHasFavoritesError] = useState(false); // 좋아요 조회 실패여부
   // 좋아요 요청이 응답 대기 중인 후보 id 집합. 같은 하트 재클릭을 조용히 무시.
-  const [pendingFavorites, setPendingFavorites] = useState<Set<string>>(
+  const [togglingFavorites, setTogglingFavorites] = useState<Set<string>>(
     new Set(),
   );
+
+  // 좋아요 상태 조회
+  const getFavorites = useCallback(async (candidateIds: string[]) => {
+    if (candidateIds.length === 0) return;
+    setIsFavoritesLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("name_favorites")
+        .select("name_candidate_id")
+        .in("name_candidate_id", candidateIds);
+      if (error) throw error;
+
+      setFavorites(
+        new Set((data ?? []).map((r) => r.name_candidate_id as string)),
+      );
+      setHasFavoritesError(false);
+    } catch {
+      setHasFavoritesError(true);
+    } finally {
+      setIsFavoritesLoading(false);
+    }
+  }, []);
 
   // 작명 결과 조회
   // rank = score 내림차순, 동점이면 sound_score 내림차순으로 확정한 순위.
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function getResult() {
       setIsLoading(true);
 
       try {
@@ -115,22 +143,10 @@ export default function ResultPageView({
         );
 
         // 좋아요 조회
-        if (rows.length > 0) {
-          const { data: favRows } = await supabase
-            .from("name_favorites")
-            .select("name_candidate_id")
-            .in(
-              "name_candidate_id",
-              rows.map((r) => r.id as string),
-            );
-          if (cancelled) return;
-          setFavorites(
-            new Set((favRows ?? []).map((r) => r.name_candidate_id as string)),
-          );
-        }
+        await getFavorites(rows.map((r) => r.id as string));
       } catch {
         if (cancelled) return;
-        // 쿼리 에러 + 네트워크/예상치 못한 예외를 한 곳에서 처리.
+        // 이름 목록 조회 에러 + 네트워크/예상치 못한 예외를 한 곳에서 처리.
         // 렌더 단계에서 다시 throw → 라우트의 error.tsx가 처리한다.
         setLoadError(new Error("결과를 불러오지 못했습니다"));
       } finally {
@@ -138,17 +154,21 @@ export default function ResultPageView({
       }
     }
 
-    load();
+    getResult();
 
     return () => {
       cancelled = true;
     };
-  }, [requestId]);
+  }, [requestId, getFavorites]);
 
   // 좋아요 토글: 낙관적 반영 → 백그라운드 insert/delete → 실패 시 롤백.
   async function toggleFavorite(candidateId: string) {
-    if (pendingFavorites.has(candidateId)) return; // 처리 중이면 무시
-    setPendingFavorites((p) => new Set(p).add(candidateId));
+    // 하트 상태를 못 불러온 동안엔 토글 금지
+    if (hasFavoritesError) return;
+    // 처리 중이면 무시
+    if (togglingFavorites.has(candidateId)) return;
+
+    setTogglingFavorites((p) => new Set(p).add(candidateId));
 
     const isFav = favorites.has(candidateId);
 
@@ -183,7 +203,7 @@ export default function ResultPageView({
         return next;
       });
     } finally {
-      setPendingFavorites((p) => {
+      setTogglingFavorites((p) => {
         const next = new Set(p);
         next.delete(candidateId);
         return next;
@@ -345,6 +365,28 @@ export default function ResultPageView({
         </button>
       </div>
 
+      {/* ── 좋아요 조회 실패 배너 ── */}
+      {!isLoading && hasFavoritesError && (
+        <div
+          className="flex items-center gap-2 mb-3 px-3 py-[10px] bg-[#FFF8E1] text-[#8D6E00]"
+          style={{ borderRadius: "var(--radius-md)", fontSize: "12px" }}
+          role="alert"
+        >
+          <TriangleAlert size={15} className="shrink-0" />
+          <span className="flex-1 leading-[1.4]">
+            좋아요 정보를 가져오지 못했습니다.
+          </span>
+          <button
+            onClick={() => getFavorites(names.map((n) => n.id))}
+            disabled={isFavoritesLoading}
+            className="flex items-center gap-1 font-medium shrink-0 disabled:opacity-50"
+          >
+            <RotateCw size={13} />
+            다시 시도
+          </button>
+        </div>
+      )}
+
       {/* ── 이름 카드 리스트 ── */}
       <div className="flex flex-col gap-3">
         {isLoading &&
@@ -412,10 +454,14 @@ export default function ResultPageView({
                 <div className="flex flex-col items-center justify-between shrink-0 w-16 pl-2">
                   <button
                     onClick={() => toggleFavorite(item.id)}
-                    disabled={pendingFavorites.has(item.id)}
+                    disabled={
+                      hasFavoritesError || togglingFavorites.has(item.id)
+                    }
                     aria-pressed={favorites.has(item.id)}
                     aria-label={favorites.has(item.id) ? "저장 해제" : "저장"}
-                    className="flex flex-col items-center gap-1 text-[var(--color-primary)] min-h-[44px] justify-center"
+                    className={`flex flex-col items-center gap-1 text-[var(--color-primary)] min-h-[44px] justify-center ${
+                      hasFavoritesError ? "opacity-40" : ""
+                    }`}
                   >
                     <Heart
                       size={22}
