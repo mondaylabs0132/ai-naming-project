@@ -61,11 +61,22 @@ const STATS = [
   },
 ];
 
-export default function ResultPageView({ requestId }: { requestId: string }) {
+export default function ResultPageView({
+  requestId,
+  userId,
+}: {
+  requestId: string;
+  userId: string;
+}) {
   const [activeSort, setActiveSort] = useState<"추천도" | "가나다">("추천도");
   const [names, setNames] = useState<ResultName[]>([]);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  // 좋아요 요청이 응답 대기 중인 후보 id 집합. 같은 하트 재클릭을 조용히 무시.
+  const [pendingFavorites, setPendingFavorites] = useState<Set<string>>(
+    new Set(),
+  );
 
   // 작명 결과 조회
   // rank = score 내림차순, 동점이면 sound_score 내림차순으로 확정한 순위.
@@ -89,8 +100,9 @@ export default function ResultPageView({ requestId }: { requestId: string }) {
         if (error) throw error; // 쿼리 에러를 throw로 승격 → 아래 catch로 합류
         if (cancelled) return;
 
+        const rows = data ?? [];
         setNames(
-          (data ?? []).map((row, i) => ({
+          rows.map((row, i) => ({
             id: row.id as string,
             rank: i + 1,
             name: row.given_name_hangul as string,
@@ -101,6 +113,21 @@ export default function ResultPageView({ requestId }: { requestId: string }) {
             tags: (row.tags as string[] | null) ?? [],
           })),
         );
+
+        // 좋아요 조회
+        if (rows.length > 0) {
+          const { data: favRows } = await supabase
+            .from("name_favorites")
+            .select("name_candidate_id")
+            .in(
+              "name_candidate_id",
+              rows.map((r) => r.id as string),
+            );
+          if (cancelled) return;
+          setFavorites(
+            new Set((favRows ?? []).map((r) => r.name_candidate_id as string)),
+          );
+        }
       } catch {
         if (cancelled) return;
         // 쿼리 에러 + 네트워크/예상치 못한 예외를 한 곳에서 처리.
@@ -117,6 +144,52 @@ export default function ResultPageView({ requestId }: { requestId: string }) {
       cancelled = true;
     };
   }, [requestId]);
+
+  // 좋아요 토글: 낙관적 반영 → 백그라운드 insert/delete → 실패 시 롤백.
+  async function toggleFavorite(candidateId: string) {
+    if (pendingFavorites.has(candidateId)) return; // 처리 중이면 무시
+    setPendingFavorites((p) => new Set(p).add(candidateId));
+
+    const isFav = favorites.has(candidateId);
+
+    // 1. 낙관적 반영 — 하트 즉시 채워짐/비워짐
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (isFav) next.delete(candidateId);
+      else next.add(candidateId);
+      return next;
+    });
+
+    try {
+      const supabase = createClient();
+      if (isFav) {
+        const { error } = await supabase
+          .from("name_favorites")
+          .delete()
+          .eq("name_candidate_id", candidateId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("name_favorites")
+          .insert({ user_id: userId, name_candidate_id: candidateId });
+        if (error) throw error;
+      }
+    } catch {
+      // 3. 실패 시 롤백 — 이전 상태로 되돌림
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (isFav) next.add(candidateId);
+        else next.delete(candidateId);
+        return next;
+      });
+    } finally {
+      setPendingFavorites((p) => {
+        const next = new Set(p);
+        next.delete(candidateId);
+        return next;
+      });
+    }
+  }
 
   const sortedNames = useMemo(() => {
     const arr = [...names];
@@ -337,10 +410,21 @@ export default function ResultPageView({ requestId }: { requestId: string }) {
 
                 {/* 우측 고정 컬럼 */}
                 <div className="flex flex-col items-center justify-between shrink-0 w-16 pl-2">
-                  <button className="flex flex-col items-center gap-1 text-[var(--color-primary)] min-h-[44px] justify-center">
-                    <Heart size={22} />
+                  <button
+                    onClick={() => toggleFavorite(item.id)}
+                    disabled={pendingFavorites.has(item.id)}
+                    aria-pressed={favorites.has(item.id)}
+                    aria-label={favorites.has(item.id) ? "저장 해제" : "저장"}
+                    className="flex flex-col items-center gap-1 text-[var(--color-primary)] min-h-[44px] justify-center"
+                  >
+                    <Heart
+                      size={22}
+                      fill={
+                        favorites.has(item.id) ? "var(--color-primary)" : "none"
+                      }
+                    />
                     <span className="font-medium" style={{ fontSize: "11px" }}>
-                      저장
+                      {favorites.has(item.id) ? "저장됨" : "저장"}
                     </span>
                   </button>
                   <Link

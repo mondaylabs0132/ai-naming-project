@@ -44,5 +44,5 @@ export default async function PremiumResultPage({
     redirect(`/upgrade/${resultId}/checkout`);
   }
 
-  return <ResultPageView requestId={resultId} />;
+  return <ResultPageView requestId={resultId} userId={user.id} />;
 }
