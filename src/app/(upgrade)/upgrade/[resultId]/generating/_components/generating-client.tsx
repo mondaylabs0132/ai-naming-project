@@ -271,14 +271,91 @@ function AnalyzingView({ pending }: { pending: boolean }) {
         꼼꼼하게 분석하여 최고의 이름을 찾아드릴게요.
       </p>
 
-      <div className="relative my-8 flex justify-center">
+      {/* 일러스트 영역 — 배경(별 캐릭터)은 고정, 분석 카드 에셋만 부유 */}
+      <div className="relative my-8">
         <Image
-          src="/assets/upgrade-generating.png"
-          alt="upgrade-generating"
-          width={1408}
-          height={1117}
+          src="/assets/upgrade-generating-bg.png"
+          alt="AI가 노트북으로 이름을 분석하는 일러스트"
+          width={1536}
+          height={1024}
           sizes="100vw"
-          className="w-full h-auto object-contain"
+          className="block h-auto w-full object-contain"
+        />
+        {/* 왼쪽 위 도넛 그래프 카드 */}
+        <Image
+          src="/assets/upgrade-generating-asset1.png"
+          alt=""
+          aria-hidden="true"
+          width={1536}
+          height={1024}
+          className="animate-float-soft absolute h-auto"
+          style={
+            {
+              left: "-6.71%",
+              top: "6.34%",
+              width: "45%",
+              "--float-y": "-20px",
+              "--float-r": "-2.5deg",
+              animationDelay: "0s",
+            } as React.CSSProperties
+          }
+        />
+        {/* 왼쪽 아래 "한" 글자 배지 */}
+        <Image
+          src="/assets/upgrade-generating-asset2.png"
+          alt=""
+          aria-hidden="true"
+          width={1536}
+          height={1024}
+          className="animate-float-soft absolute h-auto"
+          style={
+            {
+              left: "-2.49%",
+              top: "39.03%",
+              width: "33%",
+              "--float-y": "-16px",
+              "--float-r": "3.5deg",
+              animationDelay: "-0.3s",
+            } as React.CSSProperties
+          }
+        />
+        {/* 오른쪽 위 선 그래프 카드 */}
+        <Image
+          src="/assets/upgrade-generating-asset3.png"
+          alt=""
+          aria-hidden="true"
+          width={1536}
+          height={1024}
+          className="animate-float-soft absolute h-auto"
+          style={
+            {
+              left: "67.27%",
+              top: "12.57%",
+              width: "37%",
+              "--float-y": "-18px",
+              "--float-r": "-2.2deg",
+              animationDelay: "-0.6s",
+            } as React.CSSProperties
+          }
+        />
+        {/* 오른쪽 아래 "음" 글자 배지 */}
+        <Image
+          src="/assets/upgrade-generating-asset4.png"
+          alt=""
+          aria-hidden="true"
+          width={1536}
+          height={1024}
+          className="animate-float-soft absolute h-auto"
+          style={
+            {
+              left: "67.01%",
+              top: "45.48%",
+              width: "32%",
+              "--float-y": "-14px",
+              "--float-r": "2deg",
+              animationDelay: "-0.9s",
+            } as React.CSSProperties
+          }
         />
       </div>
 
