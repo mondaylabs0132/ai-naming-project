@@ -4,68 +4,74 @@
 
 @theme {
   /* ── 폰트 ── */
-  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif;
   --font-chalkboard: var(--font-hakgyoansim-chilpanjiugae), cursive;
 
   /* ── 컬러 ── */
-  --color-primary:      #7C6FCD;
-  --color-primary-light:#9B8FDB;
-  --color-primary-pale: #EAE7F8;
-  --color-primary-muted:#C4BEDB;
+  --color-primary: #7c6fcd;
+  --color-primary-light: #9b8fdb;
+  --color-primary-pale: #eae7f8;
+  --color-primary-muted: #c4bedb;
 
-  --color-ink:          #2D2540;
-  --color-ink-muted:    #8B849E;
-  --color-ink-light:    #C4BEDB;
+  --color-ink: #2d2540;
+  --color-ink-muted: #8b849e;
+  --color-ink-light: #c4bedb;
 
-  --color-surface:         #FFFFFF;
-  --color-surface-section: #F5F3FA;
-  --color-bg:              #F9F7F9;
-  --color-divider:         #EEEBF8;
+  --color-surface: #ffffff;
+  --color-surface-section: #f5f3fa;
+  --color-bg: #f9f7f9;
+  --color-divider: #eeebf8;
 
-  --color-danger:      #F04438;
-  --color-kakao:       #FEE500;
-  --color-accent-pink: #FF8FAB;
+  --color-danger: #f04438;
+  --color-kakao: #fee500;
+  --color-accent-pink: #ff8fab;
 
   /* ── 최대 너비 ── */
   --width-app: 600px;
 
   /* ── 폰트 사이즈 ── */
-  --text-hero:          clamp(26px, 7.7vw, 32px);
-  --text-page-title:    24px;
+  --text-hero: clamp(26px, 7.7vw, 32px);
+  --text-page-title: 24px;
   --text-section-title: 16px;
   --text-name-featured: clamp(28px, 8.5vw, 36px);
-  --text-name-side:     clamp(22px, 6.7vw, 28px);
-  --text-stat:          22px;
-  --text-body:          15px;
-  --text-btn:           16px;
-  --text-caption:       13px;
-  --text-tag:           12px;
-  --text-nav:           11px;
+  --text-name-side: clamp(22px, 6.7vw, 28px);
+  --text-stat: 22px;
+  --text-body: 15px;
+  --text-btn: 16px;
+  --text-caption: 13px;
+  --text-tag: 12px;
+  --text-nav: 11px;
 
   /* ── 보더 라디우스 ── */
-  --radius-xs:   6px;
-  --radius-sm:   10px;
-  --radius-md:   14px;
-  --radius-lg:   18px;
-  --radius-xl:   22px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
   --radius-pill: 9999px;
 
   /* ── 그림자 ── */
-  --shadow-card:          0px 2px 12px rgba(124, 111, 205, 0.08);
-  --shadow-card-md:       0px 4px 16px rgba(124, 111, 205, 0.12);
+  --shadow-card: 0px 2px 12px rgba(124, 111, 205, 0.08);
+  --shadow-card-md: 0px 4px 16px rgba(124, 111, 205, 0.12);
   --shadow-card-featured: 0px 8px 32px rgba(124, 111, 205, 0.18);
-  --shadow-btn:           0px 4px 16px rgba(124, 111, 205, 0.35);
-  --shadow-nav-bottom:    0px -1px 12px rgba(0, 0, 0, 0.06);
+  --shadow-btn: 0px 4px 16px rgba(124, 111, 205, 0.35);
+  --shadow-nav-bottom: 0px -1px 12px rgba(0, 0, 0, 0.06);
 
   /* ── 스페이싱 ── */
-  --spacing-section:    48px;
-  --spacing-nav-top:    52px;
+  --spacing-section: 48px;
+  --spacing-nav-top: 52px;
   --spacing-nav-bottom: 64px;
+
+  /* ── 애니메이션 ── */
+  --animate-float-soft: float-soft 4s ease-in-out infinite;
 }
 
 /* ── Base reset ── */
 @layer base {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
   }
 
@@ -84,9 +90,19 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  img, svg { display: block; max-width: 100%; }
-  button { cursor: pointer; font-family: inherit; }
-  a { color: inherit; text-decoration: none; }
+  img,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+  button {
+    cursor: pointer;
+    font-family: inherit;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 
   :focus-visible {
     outline: 2px solid var(--color-primary);
@@ -94,10 +110,14 @@
     border-radius: 4px;
   }
 
-  ::-webkit-scrollbar { display: none; }
+  ::-webkit-scrollbar {
+    display: none;
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
@@ -124,5 +144,20 @@
 
   .page-content {
     padding: var(--spacing-nav-top) 20px var(--spacing-nav-bottom);
+  }
+}
+
+/* ── 애니메이션 ── */
+/* 로딩 일러스트: 카드 에셋이 살짝 기울며 위아래로 떠오르고 opacity 변동
+   (진폭 --float-y, 기울기 --float-r로 에셋별 조절) */
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translateY(var(--float-y, -10px)) rotate(var(--float-r, 0deg));
+    opacity: 1;
   }
 }

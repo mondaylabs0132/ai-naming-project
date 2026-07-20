@@ -121,15 +121,74 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
         사주, 오행, 음양, 수리, 음운, 의미까지 종합 분석 중이에요.
       </p>
 
-      {/* 일러스트 영역 */}
+      {/* 일러스트 영역 — 배경(별 캐릭터)은 고정, 카드 에셋만 부유 */}
       <div className="relative my-8">
         <Image
-          src="/assets/funnel-generating.png"
-          alt="funnel-generating"
-          width={1408}
+          src="/assets/funnel-generating-bg.png"
+          alt="AI가 노트북으로 이름을 분석하는 일러스트"
+          width={1409}
           height={1117}
           sizes="100vw"
-          className="w-full h-auto object-contain"
+          className="block h-auto w-full object-contain"
+        />
+        {/* 이미지 하단 경계를 페이지 배경색으로 부드럽게 연결 */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[10px] bg-linear-to-b from-transparent to-bg" />
+        {/* 왼쪽 도넛 그래프 카드 */}
+        <Image
+          src="/assets/funnel-generating-asset1.png"
+          alt=""
+          aria-hidden="true"
+          width={1536}
+          height={1024}
+          className="animate-float-soft absolute h-auto"
+          style={
+            {
+              left: "-3.76%",
+              top: "9.25%",
+              width: "47.89%",
+              "--float-y": "-20px",
+              "--float-r": "-1.5deg",
+              animationDelay: "0s",
+            } as React.CSSProperties
+          }
+        />
+        {/* 오른쪽 위 AI 배지 */}
+        <Image
+          src="/assets/funnel-generating-asset2.png"
+          alt=""
+          aria-hidden="true"
+          width={1536}
+          height={1024}
+          className="animate-float-soft absolute h-auto"
+          style={
+            {
+              left: "60.73%",
+              top: "4.28%",
+              width: "29.38%",
+              "--float-y": "-12px",
+              "--float-r": "1.5deg",
+              animationDelay: "-0.3s",
+            } as React.CSSProperties
+          }
+        />
+        {/* 오른쪽 막대 그래프 카드 */}
+        <Image
+          src="/assets/funnel-generating-asset3.png"
+          alt=""
+          aria-hidden="true"
+          width={1536}
+          height={1024}
+          className="animate-float-soft absolute h-auto"
+          style={
+            {
+              left: "61.66%",
+              top: "32.55%",
+              width: "47.4%",
+              "--float-y": "-18px",
+              "--float-r": "-2.2deg",
+              animationDelay: "-0.6s",
+            } as React.CSSProperties
+          }
         />
       </div>
 
