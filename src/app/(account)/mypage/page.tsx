@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Bell,
@@ -18,8 +22,54 @@ import SectionHeader from "./_components/SectionHeader";
 import SectionCard from "./_components/SectionCard";
 import MiniCard from "./_components/MiniCard";
 import ListRow from "./_components/ListRow";
+import { createClient } from "@/lib/supabase/client";
+import {
+  getMyPageSummary,
+  formatDate,
+  formatWon,
+  type MyPageSummary,
+} from "@/lib/mypage/summary";
 
 export default function MyPage() {
+  const router = useRouter();
+  const [summary, setSummary] = useState<MyPageSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    getMyPageSummary()
+      .then((data) => {
+        if (alive) setSummary(data);
+      })
+      .catch((e) => {
+        if (alive) setError(e instanceof Error ? e : new Error(String(e)));
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // 조회 실패 시 에러 바운더리(error.tsx)로 위임
+  if (error) throw error;
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    // 프록시가 세션 없음을 감지하도록 로그인으로 이동 후 서버 상태 새로고침
+    router.replace("/login");
+    router.refresh();
+  }
+
+  // 데이터 로딩 중에는 동적 값들을 뿌옇게(blur + pulse) 처리해 로딩 상태를 표현
+  const blurClass = loading ? "blur-[4px] animate-pulse select-none" : "";
+
   return (
     <div className="pb-16">
       {/* ── 헤더 ── */}
@@ -36,7 +86,7 @@ export default function MyPage() {
             alt="별"
             width={32}
             height={32}
-            className="inline-block"
+            className="inline-block h-8 w-8"
           />
         </div>
         <Bell size={22} className="text-[var(--color-ink-muted)]" />
@@ -52,22 +102,30 @@ export default function MyPage() {
             >
               <Star size={28} className="text-[var(--color-primary-muted)]" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p
-                className="font-semibold text-[var(--color-ink)]"
+                className={`font-semibold text-[var(--color-ink)] truncate ${blurClass}`}
                 style={{ fontSize: "15px" }}
               >
-                example@email.com
+                {loading ? "example@email.com" : (summary?.email ?? "-")}
               </p>
               <p
                 className="text-[var(--color-ink-muted)]"
                 style={{ fontSize: "13px" }}
               >
-                가입일 2024.05.20
+                가입일{" "}
+                <span className={blurClass}>
+                  {loading
+                    ? "2024.00.00"
+                    : formatDate(summary?.joinedAt ?? null)}
+                </span>
               </p>
             </div>
             <button
-              className="flex items-center gap-1 border border-[var(--color-primary)] text-[var(--color-primary)] px-3 py-1"
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="flex items-center gap-1 shrink-0 whitespace-nowrap border border-[var(--color-primary)] text-[var(--color-primary)] px-3 py-1 disabled:opacity-50"
               style={{ fontSize: "13px", borderRadius: "var(--radius-pill)" }}
             >
               <LogOut size={13} />
@@ -89,7 +147,7 @@ export default function MyPage() {
                   alt="이름 분석"
                   width={48}
                   height={48}
-                  className="object-contain"
+                  className="object-contain h-12 w-12"
                 />
               }
             >
@@ -100,16 +158,20 @@ export default function MyPage() {
                 최근 분석 결과
               </span>
               <span
-                className="font-bold text-[var(--color-primary)]"
+                className={`font-bold text-[var(--color-primary)] ${blurClass}`}
                 style={{ fontSize: "16px" }}
               >
-                3개 이름
+                {loading
+                  ? "0개 이름"
+                  : `${summary?.latestNameCount ?? 0}개 이름`}
               </span>
               <span
-                className="text-[var(--color-ink-muted)]"
+                className={`text-[var(--color-ink-muted)] ${blurClass}`}
                 style={{ fontSize: "11px" }}
               >
-                2024.06.11 분석
+                {loading
+                  ? "2024.00.00 분석"
+                  : `${formatDate(summary?.latestAnalyzedAt ?? null)} 분석`}
               </span>
             </MiniCard>
             <div className="basis-[60%] flex flex-col justify-center">
@@ -132,7 +194,7 @@ export default function MyPage() {
                   alt="쿠폰"
                   width={48}
                   height={48}
-                  className="object-contain"
+                  className="object-contain h-12 w-12"
                 />
               }
             >
@@ -143,10 +205,10 @@ export default function MyPage() {
                 보유 쿠폰
               </span>
               <span
-                className="font-bold text-[var(--color-primary)]"
+                className={`font-bold text-[var(--color-primary)] ${blurClass}`}
                 style={{ fontSize: "16px" }}
               >
-                2장
+                {loading ? "0장" : `${summary?.activeCouponCount ?? 0}장`}
               </span>
             </MiniCard>
             <div className="basis-[60%] flex flex-col justify-center">
@@ -168,7 +230,7 @@ export default function MyPage() {
                   alt="결제 카드"
                   width={48}
                   height={48}
-                  className="object-contain"
+                  className="object-contain h-12 w-12"
                 />
               }
             >
@@ -179,16 +241,20 @@ export default function MyPage() {
                 최근 결제
               </span>
               <span
-                className="font-bold text-[var(--color-ink)]"
+                className={`font-bold text-[var(--color-ink)] ${blurClass}`}
                 style={{ fontSize: "16px" }}
               >
-                9,900원
+                {loading
+                  ? "0,000원"
+                  : formatWon(summary?.latestPaidAmount ?? null)}
               </span>
               <span
-                className="text-[var(--color-ink-muted)]"
+                className={`text-[var(--color-ink-muted)] ${blurClass}`}
                 style={{ fontSize: "11px" }}
               >
-                2024.06.10
+                {loading
+                  ? "2024.00.00"
+                  : formatDate(summary?.latestPaidAt ?? null)}
               </span>
             </MiniCard>
             <div className="basis-[60%] flex flex-col justify-center">
