@@ -61,7 +61,12 @@ export default function MyPage() {
     if (loggingOut) return;
     setLoggingOut(true);
     const supabase = createClient();
-    await supabase.auth.signOut();
+    const { error: signOutError } = await supabase.auth.signOut();
+
+    if (signOutError) {
+      setLoggingOut(false);
+      return;
+    }
     // 프록시가 세션 없음을 감지하도록 로그인으로 이동 후 서버 상태 새로고침
     router.replace("/login");
     router.refresh();
