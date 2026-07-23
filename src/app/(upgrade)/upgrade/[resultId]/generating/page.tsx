@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import PremiumGeneratingClient from "./_components/generating-client";
 
@@ -21,14 +20,12 @@ export default async function PremiumGeneratingPage({
   }
 
   // 2. 소유권 — 타인 소유 결과 차단(미귀속 결과는 결제 확정 시 귀속되므로 허용)
-  const admin = createAdminClient();
-  const { data: nr } = await admin
+  const { data: nr } = await supabase
     .from("naming_requests")
-    .select("user_id, status, deleted_at")
+    .select("status")
     .eq("id", resultId)
     .maybeSingle();
-  if (!nr || nr.deleted_at || nr.status === "DELETED") notFound();
-  if (nr.user_id && nr.user_id !== user.id) notFound();
+  if (!nr || nr.status === "DELETED") notFound();
 
   // 3. 이미 생성 완료 → 결과 페이지로
   if (nr.status === "PREMIUM_RESULT_READY") {

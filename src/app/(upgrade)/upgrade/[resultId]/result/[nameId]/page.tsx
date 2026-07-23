@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
 import ResultDetailView from "@/components/result/ResultDetailView";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PremiumNameDetailPage({
@@ -21,19 +20,17 @@ export default async function PremiumNameDetailPage({
     redirect(`/login?redirectTo=/upgrade/${resultId}/result/${nameId}`);
   }
 
-  // 2. 소유권 — 본인 결과가 아니면 존재를 숨김(404)
-  const admin = createAdminClient();
-  const { data: nr } = await admin
+  // 2. 소유권 — RLS(auth.uid() = user_id, deleted_at IS NULL)본인 결과가 아니면 존재를 숨김(404)
+  const { data: nr } = await supabase
     .from("naming_requests")
-    .select("user_id, status, deleted_at")
+    .select("status")
     .eq("id", resultId)
     .maybeSingle();
-  if (!nr || nr.deleted_at || nr.status === "DELETED") notFound();
-  if (nr.user_id !== user.id) notFound();
+  if (!nr || nr.status === "DELETED") notFound();
 
   // 3. 결제/생성 상태 — 준비된 유료 결과만 노출
   if (nr.status !== "PREMIUM_RESULT_READY") {
-    const { data: order } = await admin
+    const { data: order } = await supabase
       .from("premium_orders")
       .select("status")
       .eq("request_id", resultId)
