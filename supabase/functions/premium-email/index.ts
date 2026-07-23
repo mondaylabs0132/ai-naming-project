@@ -19,8 +19,39 @@ type WebhookPayload = {
 };
 
 const READY = "PREMIUM_RESULT_READY";
+const WEBHOOK_SECRET_HEADER = "x-webhook-secret";
+
+function timingSafeEqual(a: string, b: string) {
+  const encoder = new TextEncoder();
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+  if (left.length !== right.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < left.length; i += 1) {
+    diff |= left[i] ^ right[i];
+  }
+  return diff === 0;
+}
 
 Deno.serve(async (req) => {
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  const { data: webhookSecret, error: secretError } = await admin.rpc(
+    "get_premium_email_webhook_secret",
+  );
+  const actualSecret = req.headers.get(WEBHOOK_SECRET_HEADER) ?? "";
+  if (
+    secretError ||
+    typeof webhookSecret !== "string" ||
+    !timingSafeEqual(actualSecret, webhookSecret)
+  ) {
+    return new Response("unauthorized", { status: 401 });
+  }
+
   let payload: WebhookPayload;
   try {
     payload = await req.json();
@@ -45,11 +76,6 @@ Deno.serve(async (req) => {
       headers: { "content-type": "application/json" },
     });
   }
-
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
 
   // 2. premium_order_id + email 확보
   const { data: order } = await admin
