@@ -22,20 +22,26 @@ export async function getMyPageSummary(): Promise<MyPageSummary | null> {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
+  // 세션 없음은 미로그인(null)으로 처리하고, 그 외 인증 오류는 전파
+  if (authError && authError.name !== "AuthSessionMissingError") {
+    throw authError;
+  }
   if (!user) return null;
 
   const userId = user.id;
 
   // 1) 유저 정보 (email, 가입일)
-  const { data: userRow } = await supabase
+  const { data: userRow, error: userError } = await supabase
     .from("users")
     .select("email, created_at")
     .eq("id", userId)
     .maybeSingle();
+  if (userError) throw userError;
 
   // 2) 최근 분석 request (삭제되지 않은 것 중 가장 최근)
-  const { data: latestRequest } = await supabase
+  const { data: latestRequest, error: requestError } = await supabase
     .from("naming_requests")
     .select("id, updated_at")
     .eq("user_id", userId)
@@ -43,27 +49,30 @@ export async function getMyPageSummary(): Promise<MyPageSummary | null> {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (requestError) throw requestError;
 
   // 3) 최근 request의 이름 후보 개수
   let latestNameCount = 0;
   if (latestRequest) {
-    const { count } = await supabase
+    const { count, error: countError } = await supabase
       .from("name_candidates")
       .select("id", { count: "exact", head: true })
       .eq("request_id", latestRequest.id);
+    if (countError) throw countError;
     latestNameCount = count ?? 0;
   }
 
   // 4) 보유(사용 가능) 쿠폰 개수 — ACTIVE + 미만료
-  const { count: activeCouponCount } = await supabase
+  const { count: activeCouponCount, error: couponError } = await supabase
     .from("coupons")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("status", "ACTIVE")
     .gt("expires_at", new Date().toISOString());
+  if (couponError) throw couponError;
 
   // 5) 최근 결제 (COMPLETED) — paid_at 기준 최신
-  const { data: latestOrder } = await supabase
+  const { data: latestOrder, error: orderError } = await supabase
     .from("premium_orders")
     .select("amount, paid_at")
     .eq("user_id", userId)
@@ -71,6 +80,7 @@ export async function getMyPageSummary(): Promise<MyPageSummary | null> {
     .order("paid_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (orderError) throw orderError;
 
   return {
     email: userRow?.email ?? user.email ?? null,
