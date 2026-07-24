@@ -21,9 +21,9 @@ export default function TopNav() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/assets/logo.png"
-        alt="이름담다 로고"
+        alt="첫지음 로고"
         className="py-3"
-        style={{ width: "100px", height: "auto" }}
+        style={{ width: "80px", height: "auto" }}
       />
     </header>
   );
