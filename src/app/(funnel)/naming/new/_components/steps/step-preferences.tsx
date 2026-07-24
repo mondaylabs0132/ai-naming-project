@@ -54,11 +54,11 @@ const PREFERENCE_FIELDS = [
   "checkEnglishPronunciation",
 ] as const;
 const SECTION_TITLE_CLASS =
-  "text-[19px] font-bold leading-tight tracking-normal text-[#15386D]";
+  "text-[clamp(16px,4.4vw,19px)] font-bold leading-tight tracking-normal text-[#15386D]";
 const SECTION_TITLE_SUFFIX_CLASS =
-  "ml-1 text-[15px] font-semibold text-[#687896]";
+  "ml-1 text-[clamp(13px,3.4vw,15px)] font-semibold text-[#687896]";
 const ERROR_TEXT_CLASS =
-  "mt-3 text-[14px] font-semibold leading-normal tracking-normal text-danger";
+  "mt-3 text-[13px] font-semibold leading-normal tracking-normal text-danger";
 
 export default function StepPreferences({
   currentStep,
@@ -154,17 +154,18 @@ export default function StepPreferences({
 
   return (
     <FunnelFrame currentStep={currentStep} onNext={handleNext} onPrev={onPrev}>
-      <section className="bg-bg px-11 pt-2">
-        <div className="grid min-h-[250px] grid-cols-[minmax(0,1fr)_190px] items-start gap-1 overflow-hidden">
-          <div className="pt-8">
-            <h1 className="text-[29px] font-bold leading-[1.35] tracking-normal text-[#15386D]">
-              아이의 성별과
+      <section className="bg-bg px-[clamp(20px,5.5vw,44px)] pt-2">
+        <div className="mb-4 flex min-h-[170px] items-start justify-between gap-2 overflow-hidden">
+          <div className="min-w-0 flex-1 pt-6">
+            <h1 className="text-[clamp(20px,5.6vw,26px)] font-bold leading-[1.35] tracking-normal text-[#15386D]">
+              성별과 <span className="text-primary">스타일</span>을
               <br />
-              <span className="text-primary">선호 스타일</span>을 선택해주세요
+              선택해주세요
             </h1>
-            <p className="mt-5 text-body font-semibold leading-[1.75] tracking-normal text-[#687896]">
-              원하는 분위기와 조건을 선택하면
-              <br />더 만족스러운 이름을 추천해드릴 수 있어요.
+            <p className="mt-3 text-[clamp(12px,3.2vw,13.5px)] font-semibold leading-[1.6] tracking-normal text-[#687896]">
+              원하는 분위기와 조건을 선택하면{" "}
+              <br className="hidden min-[490px]:block" />더 만족스러운 이름을
+              추천해드릴 수 있어요.
             </p>
           </div>
 
@@ -174,21 +175,21 @@ export default function StepPreferences({
             width={260}
             height={260}
             priority
-            className="h-[220px] w-[220px] max-w-none -translate-x-3 object-contain object-center"
+            className="h-[clamp(120px,40vw,200px)] w-[clamp(120px,40vw,200px)] max-w-none shrink-0 self-center object-contain object-center"
           />
         </div>
 
-        <div className="rounded-[22px] bg-white px-7 py-8 shadow-card">
+        <div className="rounded-[22px] bg-white px-[clamp(18px,4.5vw,28px)] py-[clamp(24px,6vw,32px)] shadow-card">
           {/* 1. 성별 */}
           <fieldset>
             <legend>
-              <h2 className={SECTION_TITLE_CLASS}>1. 성별을 선택해주세요</h2>
+              <h2 className={SECTION_TITLE_CLASS}>1. 성별</h2>
             </legend>
 
             <div
               role="radiogroup"
               aria-label="아이 성별"
-              className="mt-4 grid grid-cols-2 gap-6"
+              className="mt-4 grid grid-cols-2 gap-[clamp(12px,3.5vw,24px)]"
             >
               {GENDER_OPTIONS.map((option) => {
                 const isSelected = gender === option.value;
@@ -201,7 +202,7 @@ export default function StepPreferences({
                     aria-checked={isSelected}
                     onClick={() => selectGender(option.value)}
                     className={[
-                      "relative flex h-[80px] min-w-0 items-center rounded-[14px] border-2 px-3 pr-10 text-[20px] font-bold leading-none tracking-normal transition",
+                      "relative flex h-[clamp(56px,18vw,80px)] min-w-0 items-center rounded-[14px] border-2 pl-[clamp(8px,3vw,12px)] pr-[clamp(30px,7vw,36px)] text-[clamp(16px,4.6vw,20px)] font-bold leading-none tracking-normal transition",
                       isSelected
                         ? "border-primary bg-[#FBFAFF] text-primary shadow-[0_0_0_3px_rgba(124,111,205,0.06)]"
                         : "border-divider bg-white text-[#15386D] hover:border-primary-light",
@@ -212,10 +213,12 @@ export default function StepPreferences({
                       alt={option.imageAlt}
                       width={54}
                       height={54}
-                      className="size-[54px] shrink-0 object-contain"
+                      className="size-[clamp(32px,9vw,54px)] shrink-0 object-contain"
                     />
-                    <span className="ml-4 min-w-0">{option.label}</span>
-                    <span className="absolute right-4 top-4">
+                    <span className="ml-[clamp(0px,1vw,16px)] min-w-0 truncate text-[clamp(14px,4vw,20px)]">
+                      {option.label}
+                    </span>
+                    <span className="absolute right-3 top-3">
                       {isSelected ? (
                         <span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-primary text-white">
                           <Check
@@ -237,9 +240,10 @@ export default function StepPreferences({
               })}
             </div>
             <p
-              className={[ERROR_TEXT_CLASS, genderError ? "block" : "hidden"].join(
-                " ",
-              )}
+              className={[
+                ERROR_TEXT_CLASS,
+                genderError ? "block" : "hidden",
+              ].join(" ")}
             >
               {genderError}
             </p>
@@ -249,7 +253,7 @@ export default function StepPreferences({
           <fieldset className="mt-10">
             <legend>
               <h2 className={SECTION_TITLE_CLASS}>
-                2. 선호하는 분위기를 선택해주세요
+                2. 원하는 분위기
                 <span className={SECTION_TITLE_SUFFIX_CLASS}>(최대 3개)</span>
               </h2>
             </legend>
@@ -267,7 +271,7 @@ export default function StepPreferences({
                     disabled={isDisabled}
                     onClick={() => toggleMood(mood)}
                     className={[
-                      "flex h-[62px] min-w-0 items-center gap-2 overflow-hidden rounded-[14px] border px-2 text-left text-[14px] font-bold leading-none tracking-normal transition",
+                      "flex h-[clamp(52px,15vw,62px)] min-w-0 items-center gap-2 overflow-hidden rounded-[14px] border px-2 text-left text-[clamp(12px,3.6vw,14px)] font-bold leading-none tracking-normal transition",
                       isSelected
                         ? "border-primary bg-[#FBFAFF] text-primary shadow-[0_0_0_2px_rgba(124,111,205,0.04)]"
                         : "border-divider bg-white text-[#4F5E7D] hover:border-primary-light",
@@ -295,9 +299,10 @@ export default function StepPreferences({
               })}
             </div>
             <p
-              className={[ERROR_TEXT_CLASS, moodError ? "block" : "hidden"].join(
-                " ",
-              )}
+              className={[
+                ERROR_TEXT_CLASS,
+                moodError ? "block" : "hidden",
+              ].join(" ")}
             >
               {moodError}
             </p>
@@ -307,7 +312,7 @@ export default function StepPreferences({
           <button
             type="button"
             onClick={toggleExpanded}
-            className="mt-7 flex min-h-10 items-center gap-3 text-[16px] font-bold leading-none tracking-normal text-[#687896]"
+            className="mt-7 flex min-h-10 items-center gap-3 text-[clamp(14px,4vw,16px)] font-bold leading-none tracking-normal text-[#687896]"
           >
             {isExpanded ? (
               <>
@@ -316,7 +321,7 @@ export default function StepPreferences({
                   className="size-5"
                   strokeWidth={2.4}
                 />
-                더 적은 분위기 보기
+                추가 스타일 닫기
                 <ChevronUp
                   aria-hidden="true"
                   className="size-5"
@@ -326,7 +331,7 @@ export default function StepPreferences({
             ) : (
               <>
                 <Plus aria-hidden="true" className="size-5" strokeWidth={2.4} />
-                더 많은 분위기 보기
+                추가 스타일 보기
                 <ChevronDown
                   aria-hidden="true"
                   className="size-5"
@@ -358,7 +363,7 @@ export default function StepPreferences({
                     });
                   }}
                   placeholder="예) 준, 서, 민"
-                  className="mt-4 h-[60px] w-full rounded-lg border border-divider bg-white px-5 text-[17px] font-semibold leading-none tracking-normal text-ink outline-none transition placeholder:text-ink-light focus:border-primary focus:shadow-[0_0_0_4px_rgba(124,111,205,0.12)]"
+                  className="mt-4 h-[clamp(52px,14vw,60px)] w-full rounded-lg border border-divider bg-white px-4 text-[clamp(15px,4.2vw,17px)] font-semibold leading-none tracking-normal text-ink outline-none transition placeholder:text-ink-light focus:border-primary focus:shadow-[0_0_0_4px_rgba(124,111,205,0.12)]"
                 />
                 <p className="mt-3 text-[13px] font-semibold leading-normal tracking-normal text-[#687896]">
                   특정 돌림자가 있다면 입력해주세요.
@@ -391,7 +396,7 @@ export default function StepPreferences({
                     );
                   }}
                   placeholder="예) 지우, 민주"
-                  className="mt-4 h-[60px] w-full rounded-lg border border-divider bg-white px-5 text-[17px] font-semibold leading-none tracking-normal text-ink outline-none transition placeholder:text-ink-light focus:border-primary focus:shadow-[0_0_0_4px_rgba(124,111,205,0.12)]"
+                  className="mt-4 h-[clamp(52px,14vw,60px)] w-full rounded-lg border border-divider bg-white px-4 text-[clamp(15px,4.2vw,17px)] font-semibold leading-none tracking-normal text-ink outline-none transition placeholder:text-ink-light focus:border-primary focus:shadow-[0_0_0_4px_rgba(124,111,205,0.12)]"
                 />
                 <p className="mt-3 text-[13px] font-semibold leading-normal tracking-normal text-[#687896]">
                   형제자매 이름과 어울리는 이름을 추천해드려요.
@@ -405,7 +410,7 @@ export default function StepPreferences({
                   <span className={SECTION_TITLE_SUFFIX_CLASS}>(선택)</span>
                 </h2>
 
-                <div className="mt-4 flex items-center gap-4">
+                <div className="mt-4 flex items-start gap-3">
                   <button
                     type="button"
                     role="switch"
@@ -418,38 +423,40 @@ export default function StepPreferences({
                       )
                     }
                     className={[
-                      "relative h-9 w-[62px] shrink-0 rounded-full p-1 transition",
+                      "relative h-8 w-[52px] shrink-0 rounded-full p-1 transition min-[600px]:h-9 min-[600px]:w-[62px]",
                       checkEnglishPronunciation ? "bg-primary" : "bg-[#DDDAE8]",
                     ].join(" ")}
                   >
                     <span
                       aria-hidden="true"
                       className={[
-                        "block size-7 rounded-full bg-white shadow-[0_2px_8px_rgba(45,37,64,0.18)] transition",
+                        "block size-6 rounded-full bg-white shadow-[0_2px_8px_rgba(45,37,64,0.18)] transition min-[600px]:size-7",
                         checkEnglishPronunciation
-                          ? "translate-x-[26px]"
+                          ? "translate-x-[20px] min-[600px]:translate-x-[26px]"
                           : "translate-x-0",
                       ].join(" ")}
                     />
                   </button>
-                  <span className="text-[16px] font-bold leading-tight tracking-normal text-[#4F5E7D]">
-                    영문 발음이 쉬운 이름을 우선 추천
-                  </span>
+                  <div className="min-w-0">
+                    <span className="block text-[clamp(14px,4vw,16px)] font-bold leading-tight tracking-normal text-[#4F5E7D]">
+                      영문 발음이 쉬운 이름을 우선 추천
+                    </span>
+                    <p className="mt-1 text-[13px] font-semibold leading-normal tracking-normal text-[#687896]">
+                      끄면 기본적으로 발음을 크게 고려하지 않아요.
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-1 pl-[78px] text-[13px] font-semibold leading-normal tracking-normal text-[#687896]">
-                  끄면 기본적으로 발음을 크게 고려하지 않아요.
-                </p>
               </div>
             </div>
           )}
 
-          <div className="mt-8 flex items-center gap-2 rounded-[14px] bg-[#F5EFFF] p-4 text-primary">
+          <div className="mt-8 flex items-center gap-2 rounded-[14px] bg-[#F5EFFF] p-[clamp(12px,3.5vw,16px)] text-primary">
             <Lightbulb
               aria-hidden="true"
-              className="size-8 shrink-0"
+              className="size-7 shrink-0"
               strokeWidth={2.2}
             />
-            <p className="text-[15px] font-semibold leading-normal tracking-normal text-[#687896]">
+            <p className="text-[clamp(13px,3.5vw,15px)] font-semibold leading-normal tracking-normal text-[#687896]">
               선택한 조건을 기반으로 어울리는 이름을 추천해드려요.
             </p>
           </div>

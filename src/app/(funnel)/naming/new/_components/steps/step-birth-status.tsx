@@ -81,15 +81,15 @@ export default function StepBirthStatus({
 
   return (
     <FunnelFrame currentStep={currentStep} onNext={handleNext} onPrev={onPrev}>
-      <section className="bg-bg px-11 pb-4 pt-2">
-        <div className="grid min-h-[250px] grid-cols-[minmax(0,1fr)_190px] items-start gap-1 overflow-hidden">
-          <div className="pt-8">
-            <h1 className="text-[29px] font-bold leading-[1.35] tracking-normal text-ink">
-              아이의 출생 여부를
+      <section className="bg-bg px-[clamp(20px,5.5vw,44px)] pb-4 pt-2">
+        <div className="mb-4 flex min-h-[170px] items-start justify-between gap-2 overflow-hidden">
+          <div className="min-w-0 flex-1 pt-6">
+            <h1 className="text-[clamp(20px,5.6vw,26px)] font-bold leading-[1.35] tracking-normal text-ink">
+              출생 여부를
               <br />
               <span className="text-primary">선택</span>해주세요
             </h1>
-            <p className="mt-5 text-body font-semibold leading-[1.75] tracking-normal text-ink-muted">
+            <p className="mt-3 text-[clamp(12px,3.2vw,13.5px)] font-semibold leading-[1.6] tracking-normal text-ink-muted">
               정확한 분석을 위해
               <br />
               알맞은 항목을 선택해주세요.
@@ -102,7 +102,7 @@ export default function StepBirthStatus({
             width={260}
             height={260}
             priority
-            className="h-[230px] w-[230px] max-w-none -translate-x-6 object-contain object-center"
+            className="h-[clamp(120px,40vw,200px)] w-[clamp(120px,40vw,200px)] max-w-none shrink-0 self-center object-contain object-center"
           />
         </div>
 
@@ -110,7 +110,7 @@ export default function StepBirthStatus({
           role="radiogroup"
           aria-label="아이의 출생 여부"
           aria-describedby="birth-status-error"
-          className="space-y-7"
+          className="space-y-5"
         >
           {BIRTH_STATUS_OPTIONS.map((option) => {
             const isSelected = value === option.value;
@@ -130,22 +130,22 @@ export default function StepBirthStatus({
                   alt={option.imageAlt}
                   width={145}
                   height={145}
-                  className="h-[145px] w-[145px] shrink-0 object-contain"
+                  className="h-[clamp(88px,26vw,145px)] w-[clamp(88px,26vw,145px)] shrink-0 object-contain"
                 />
 
                 <span className="min-w-0">
-                  <span className="block text-[20px] font-bold leading-none tracking-normal text-ink">
+                  <span className="block text-[clamp(15px,4.4vw,18px)] font-bold leading-none tracking-normal text-ink">
                     {option.title}
                   </span>
                   <span
                     className={[
-                      "mt-3 block text-[16px] font-bold leading-[1.35] tracking-normal",
+                      "mt-3 block text-[clamp(13px,3.6vw,15px)] font-bold leading-[1.35] tracking-normal",
                       radioClasses.accentText,
                     ].join(" ")}
                   >
                     {option.headline}
                   </span>
-                  <span className="mt-3 block whitespace-pre-line text-[14px] font-semibold leading-[1.75] tracking-normal text-ink-muted">
+                  <span className="mt-3 block text-pretty text-[clamp(11px,3vw,13px)] font-semibold leading-[1.6] tracking-normal text-ink-muted">
                     {option.description}
                   </span>
                 </span>
@@ -153,13 +153,13 @@ export default function StepBirthStatus({
                 <span
                   aria-hidden="true"
                   className={[
-                    "absolute right-7 top-8 flex size-8 items-center justify-center rounded-full border-[3px] bg-white transition",
+                    "absolute right-[clamp(16px,4vw,28px)] top-[clamp(20px,5vw,32px)] flex size-[clamp(22px,5.5vw,28px)] items-center justify-center rounded-full border-[3px] bg-white transition",
                     radioClasses.border,
                   ].join(" ")}
                 >
                   <span
                     className={[
-                      "size-4 rounded-full transition",
+                      "size-[clamp(10px,2.6vw,13px)] rounded-full transition",
                       radioClasses.dot,
                       isSelected
                         ? "scale-100 opacity-100"
@@ -175,7 +175,7 @@ export default function StepBirthStatus({
         <p
           id="birth-status-error"
           className={[
-            "mt-3 text-[14px] font-semibold leading-normal tracking-normal text-danger",
+            "mt-3 text-[13px] font-semibold leading-normal tracking-normal text-danger",
             birthStatusError ? "block" : "hidden",
           ].join(" ")}
         >
@@ -209,7 +209,7 @@ function getOptionClasses(option: BirthStatusOption) {
       : "border-[#FBE8DC] bg-[#FFFCF9]";
 
   return [
-    "relative flex min-h-[178px] w-full items-center gap-4 rounded-[22px] border px-7 py-8 pr-16 text-left shadow-[0_2px_12px_rgba(124,111,205,0.05)] transition",
+    "relative flex min-h-[clamp(132px,36vw,178px)] w-full items-center gap-[clamp(10px,3vw,16px)] rounded-[22px] border px-[clamp(16px,4vw,28px)] py-[clamp(20px,5vw,32px)] pr-[clamp(44px,12vw,64px)] text-left shadow-[0_2px_12px_rgba(124,111,205,0.05)] transition",
     toneClasses,
   ].join(" ");
 }

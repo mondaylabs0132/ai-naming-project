@@ -30,7 +30,7 @@ const BIRTH_INFO_FIELDS = [
   "birthTime",
 ] as const;
 const ERROR_TEXT_CLASS =
-  "mt-3 text-[14px] font-semibold leading-normal tracking-normal text-danger";
+  "mt-3 text-[13px] font-semibold leading-normal tracking-normal text-danger";
 
 export default function StepBirthInfo({
   currentStep,
@@ -53,25 +53,25 @@ export default function StepBirthInfo({
 
   return (
     <FunnelFrame currentStep={currentStep} onNext={handleNext} onPrev={onPrev}>
-      <section className="bg-bg px-11 pt-2">
-        <div className="grid min-h-[250px] grid-cols-[minmax(0,1fr)_190px] items-start gap-1 overflow-hidden">
-          <div className="pt-8">
-            <h1 className="text-[29px] font-bold leading-[1.35] tracking-normal text-[#15386D]">
+      <section className="bg-bg px-[clamp(20px,5.5vw,44px)] pt-2">
+        <div className="mb-4 flex min-h-[170px] items-start justify-between gap-2 overflow-hidden">
+          <div className="min-w-0 flex-1 pt-6">
+            <h1 className="text-[clamp(20px,5.6vw,26px)] font-bold leading-[1.35] tracking-normal text-[#15386D]">
               {isBeforeBirth ? (
                 <>
-                  아이의 예상 출생 시기를
+                  예상 출생 시기를
                   <br />
                   <span className="text-primary">입력</span>해주세요
                 </>
               ) : (
                 <>
-                  아이의 출생 정보를
+                  출생 정보를
                   <br />
                   <span className="text-primary">입력</span>해주세요
                 </>
               )}
             </h1>
-            <p className="mt-5 text-body font-semibold leading-[1.75] tracking-normal text-[#687896]">
+            <p className="mt-3 text-[clamp(12px,3.2vw,13.5px)] font-semibold leading-[1.6] tracking-normal text-[#687896]">
               정확한 사주 분석을 위해
               <br />
               {isBeforeBirth
@@ -86,7 +86,7 @@ export default function StepBirthInfo({
             width={260}
             height={260}
             priority
-            className="h-[230px] w-[230px] max-w-none -translate-x-6 object-contain object-center"
+            className="h-[clamp(120px,40vw,200px)] w-[clamp(120px,40vw,200px)] max-w-none shrink-0 self-center object-contain object-center"
           />
         </div>
 
@@ -155,7 +155,7 @@ function BeforeBirthFields() {
 
   return (
     <>
-      <div className="rounded-[22px] bg-white px-7 py-8 shadow-card">
+      <div className="rounded-[22px] bg-white px-[clamp(18px,4.5vw,28px)] py-[clamp(24px,6vw,32px)] shadow-card">
         <div className="flex items-center gap-4">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-pale text-primary">
             <CalendarDays
@@ -164,7 +164,7 @@ function BeforeBirthFields() {
               strokeWidth={2.4}
             />
           </span>
-          <h2 className="text-[19px] font-bold leading-tight tracking-normal text-[#15386D]">
+          <h2 className="text-[clamp(16px,4.4vw,19px)] font-bold leading-tight tracking-normal text-[#15386D]">
             예상 출생 시기를 선택해주세요
           </h2>
         </div>
@@ -173,7 +173,7 @@ function BeforeBirthFields() {
           <div>
             <label
               htmlFor="birth-year"
-              className="block text-[17px] font-bold leading-none tracking-normal text-[#15386D]"
+              className="block text-[clamp(15px,4vw,17px)] font-bold leading-none tracking-normal text-[#15386D]"
             >
               예상 출생 연도
             </label>
@@ -201,7 +201,7 @@ function BeforeBirthFields() {
           <div>
             <label
               htmlFor="birth-month"
-              className="block text-[17px] font-bold leading-none tracking-normal text-[#15386D]"
+              className="block text-[clamp(15px,4vw,17px)] font-bold leading-none tracking-normal text-[#15386D]"
             >
               예상 출생 월
             </label>
@@ -232,7 +232,7 @@ function BeforeBirthFields() {
           </div>
         </div>
 
-        <div className="mt-7 rounded-[14px] bg-[#F5EFFF] p-4">
+        <div className="mt-7 rounded-[14px] bg-[#F5EFFF] p-[clamp(12px,3.5vw,16px)]">
           <div className="flex items-start gap-2 text-primary">
             <Lightbulb
               aria-hidden="true"
@@ -240,11 +240,11 @@ function BeforeBirthFields() {
               strokeWidth={2.4}
             />
             <div>
-              <p className="mt-1 text-[16px] font-bold leading-none tracking-normal">
+              <p className="mt-1 text-[clamp(14px,4vw,16px)] font-bold leading-none tracking-normal">
                 알려드려요
               </p>
-              <ul className="mt-3 list-disc space-y-1 text-[13px] font-semibold leading-[1.65] tracking-normal text-[#657192] marker:text-primary">
-                <li>출생 전에는 정확한 사주 분석이 어려워요.</li>
+              <ul className="mt-3 list-disc space-y-1 text-[clamp(12px,3.2vw,13px)] font-semibold leading-[1.65] tracking-normal text-[#657192] marker:text-primary">
+                <li>출생 전은 정확한 사주 분석이 어려워요.</li>
                 <li>
                   선택하신 예상 시기를 기반으로 임시 분석 결과를 제공해드려요.
                 </li>
@@ -262,17 +262,19 @@ function BeforeBirthFields() {
           height={34}
           className="size-8 shrink-0 object-contain"
         />
-        <span className="text-[14px] font-bold leading-tight tracking-normal text-[#8B5E26]">
-          출산 후 실제 정보 입력 시,{" "}
-          <span className="text-[#F08A24]">무료 재분석 쿠폰</span>을 드려요!
+        <span className="text-[clamp(12px,3.4vw,14px)] font-bold leading-tight tracking-normal text-[#8B5E26]">
+          <span className="whitespace-nowrap">출산 후 실제 정보 입력 시,</span>{" "}
+          <span className="whitespace-nowrap">
+            <span className="text-[#F08A24]">무료 재분석 쿠폰</span>을 드려요!
+            <Image
+              src="/assets/funnel/gift-box.png"
+              alt=""
+              width={24}
+              height={24}
+              className="ml-1 hidden size-6 object-contain align-middle min-[420px]:inline-block"
+            />
+          </span>
         </span>
-        <Image
-          src="/assets/funnel/gift-box.png"
-          alt=""
-          width={24}
-          height={24}
-          className="size-6 shrink-0 object-contain"
-        />
       </div>
     </>
   );
@@ -398,7 +400,7 @@ function AfterBirthFields() {
   };
 
   return (
-    <div className="rounded-[22px] bg-white px-7 py-8 shadow-card">
+    <div className="rounded-[22px] bg-white px-[clamp(18px,4.5vw,28px)] py-[clamp(24px,6vw,32px)] shadow-card">
       <div className="flex items-center gap-4">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-pale text-primary">
           <CalendarDays
@@ -407,16 +409,16 @@ function AfterBirthFields() {
             strokeWidth={2.4}
           />
         </span>
-        <h2 className="text-[19px] font-bold leading-tight tracking-normal text-[#15386D]">
+        <h2 className="text-[clamp(16px,4.4vw,19px)] font-bold leading-tight tracking-normal text-[#15386D]">
           출생 정보를 입력해주세요
         </h2>
       </div>
 
       <fieldset className="mt-8">
-        <legend className="text-[17px] font-bold leading-none tracking-normal text-[#15386D]">
+        <legend className="text-[clamp(15px,4vw,17px)] font-bold leading-none tracking-normal text-[#15386D]">
           출생 날짜
         </legend>
-        <div className="mt-4 grid grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-3 gap-[clamp(8px,2.5vw,16px)]">
           <SelectField
             id="birth-year"
             label="출생 연도"
@@ -475,10 +477,10 @@ function AfterBirthFields() {
       </fieldset>
 
       <fieldset className="mt-9">
-        <legend className="text-[17px] font-bold leading-none tracking-normal text-[#15386D]">
+        <legend className="text-[clamp(15px,4vw,17px)] font-bold leading-none tracking-normal text-[#15386D]">
           출생 시간
         </legend>
-        <div className="mt-4 grid grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-3 gap-[clamp(8px,2.5vw,16px)]">
           <SelectField
             id="birth-period"
             label="오전 또는 오후"
@@ -527,7 +529,7 @@ function AfterBirthFields() {
 
       <div
         id="birth-time-help"
-        className="mt-7 flex items-start gap-2 text-[14px] font-semibold leading-normal tracking-normal text-[#657192]"
+        className="mt-7 flex items-start gap-2 text-[clamp(12px,3.4vw,14px)] font-semibold leading-normal tracking-normal text-[#657192]"
       >
         <Info
           aria-hidden="true"
@@ -579,7 +581,7 @@ function SelectField({
           }}
           aria-describedby={describedBy}
           className={[
-            "h-[58px] w-full appearance-none rounded-lg border border-divider bg-white px-4 pr-11 text-[18px] font-semibold leading-none tracking-normal outline-none transition",
+            "h-[clamp(52px,14vw,58px)] w-full appearance-none rounded-lg border border-divider bg-white pl-[clamp(8px,2.5vw,16px)] pr-[clamp(24px,5vw,40px)] text-[clamp(12px,3.4vw,16px)] font-semibold leading-none tracking-normal outline-none transition",
             value ? "text-[#657192]" : "text-ink-light",
             "focus:border-primary focus:shadow-[0_0_0_4px_rgba(124,111,205,0.12)]",
           ].join(" ")}
@@ -593,7 +595,7 @@ function SelectField({
         </select>
         <ChevronDown
           aria-hidden="true"
-          className="pointer-events-none absolute right-4 top-1/2 size-6 -translate-y-1/2 text-[#8C93B0]"
+          className="pointer-events-none absolute right-[clamp(6px,2.5vw,16px)] top-1/2 size-5 -translate-y-1/2 text-[#8C93B0]"
           strokeWidth={2.4}
         />
       </div>
