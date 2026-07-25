@@ -379,7 +379,10 @@ function AnalyzingView({ pending }: { pending: boolean }) {
       </div>
 
       <p className="mt-2 text-caption leading-[1.6] text-ink-muted">
-        잠시만 기다려주세요. 더욱 정확한 결과를 위해 노력하고 있어요.
+        <span className="inline-block">잠시만 기다려주세요.</span>{" "}
+        <span className="inline-block">
+          더욱 정확한 결과를 위해 노력하고 있어요.
+        </span>
       </p>
 
       <div className="mt-6 rounded-lg bg-surface p-5 text-left shadow-card">
