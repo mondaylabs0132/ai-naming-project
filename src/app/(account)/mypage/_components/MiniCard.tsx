@@ -6,12 +6,10 @@ export default function MiniCard({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="bg-[var(--color-surface-section)] flex flex-row items-center gap-3 p-3 basis-[40%] shrink-0"
-      style={{ borderRadius: "var(--radius-md)" }}
-    >
+    // 모바일: 전체 폭 한 줄 / sm 이상: 좌측 40% 컬럼
+    <div className="bg-surface-section flex flex-row items-center gap-3 p-3 w-full min-w-0 sm:w-auto sm:basis-2/5 rounded-md">
       <div className="shrink-0">{image}</div>
-      <div className="flex flex-col gap-[3px]">{children}</div>
+      <div className="flex flex-col gap-[3px] min-w-0">{children}</div>
     </div>
   );
 }

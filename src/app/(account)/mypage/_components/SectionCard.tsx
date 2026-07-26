@@ -1,9 +1,10 @@
-export default function SectionCard({ children }: { children: React.ReactNode }) {
+export default function SectionCard({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div
-      className="bg-[var(--color-surface)] shadow-[var(--shadow-card)] overflow-hidden p-4"
-      style={{ borderRadius: "var(--radius-lg)" }}
-    >
+    <div className="bg-surface shadow-card overflow-hidden p-3 min-[376px]:p-4 rounded-lg">
       {children}
     </div>
   );
