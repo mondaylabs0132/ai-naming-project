@@ -44,22 +44,22 @@ function scoreToLabel(score: number): string {
 
 const STATS = [
   {
-    icon: <Gift size={16} />,
+    icon: <Gift className="size-3.5 min-[376px]:size-4" />,
     label: "분석 이름",
     value: "20개",
     desc: "전문가 + AI 정밀 분석",
   },
   {
-    icon: <ShieldCheck size={16} />,
+    icon: <ShieldCheck className="size-3.5 min-[376px]:size-4" />,
     label: "보관 기간",
     value: "평생",
     desc: "언제든 다시 확인 가능",
   },
   {
-    icon: <Users size={16} />,
+    icon: <Users className="size-3.5 min-[376px]:size-4" />,
     label: "공유 가능",
     value: "부부와 공유",
-    desc: "함께 선택하고 결정하세요",
+    desc: "함께 선택하고 결정",
   },
 ];
 
@@ -228,13 +228,14 @@ export default function ResultPageView({
   return (
     <div className="pb-[90px] px-5">
       {/* ── 커스텀 상단 바 ── */}
-      <div className="flex items-center justify-between py-3 mb-1">
+      <div className="flex items-center justify-between mb-1">
         <Link href="/">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/assets/logo.png"
             alt="첫지음 로고"
-            style={{ width: "90px", height: "auto" }}
+            className="py-3"
+            style={{ width: "80px", height: "auto" }}
           />
         </Link>
         <button
@@ -253,36 +254,21 @@ export default function ResultPageView({
           style={{ borderRadius: "var(--radius-lg)" }}
         >
           {/* 상단 콘텐츠 — 텍스트 좌, 이미지 우 */}
-          <div className="p-5 flex items-center gap-3">
-            <div className="flex-1">
-              <span
-                className="inline-block font-semibold text-[var(--color-primary)] mb-2"
-                style={{ fontSize: "13px" }}
-              >
+          <div className="p-4 min-[376px]:p-5 flex items-center gap-2 min-[376px]:gap-3">
+            <div className="flex-1 min-w-0">
+              <span className="inline-block font-semibold text-primary mb-1.5 min-[376px]:mb-2 text-[12px] min-[376px]:text-caption">
                 정밀 분석 완료! 🎉
               </span>
-              <h1
-                className="font-extrabold text-[var(--color-ink)] leading-[1.3] mb-3"
-                style={{
-                  fontSize: "clamp(22px, 6vw, 28px)",
-                  letterSpacing: "-0.5px",
-                }}
-              >
+              <h1 className="font-extrabold text-ink leading-[1.3] tracking-[-0.5px] break-keep mb-2 min-[376px]:mb-3 text-[20px] min-[376px]:text-[24px] min-[430px]:text-[28px]">
                 정성껏 분석한
                 <br />
-                <span className="text-[var(--color-primary)]">
-                  20개의 이름을
-                </span>
+                <span className="text-primary">20개의 이름을</span>
                 <br />
                 확인해보세요
               </h1>
-              <p
-                className="text-[var(--color-ink-muted)] leading-[1.6]"
-                style={{ fontSize: "13px" }}
-              >
-                AI와 전문가가 사주, 음양, 발음, 의미까지
-                <br />
-                꼼꼼하게 분석하여 엄선한 이름입니다.
+              <p className="text-ink-muted leading-[1.6] break-keep text-[11px] min-[376px]:text-[12px] min-[430px]:text-caption">
+                AI와 전문가가 사주, 음양, 발음, 의미까지 꼼꼼하게 분석하여
+                엄선한 이름입니다.
               </p>
             </div>
             <div className="shrink-0">
@@ -291,6 +277,7 @@ export default function ResultPageView({
                 alt="별"
                 width={120}
                 height={120}
+                className="w-[84px] min-[376px]:w-[100px] min-[430px]:w-[120px] h-auto"
               />
             </div>
           </div>
@@ -300,30 +287,18 @@ export default function ResultPageView({
             {STATS.map((s) => (
               <div
                 key={s.label}
-                className="flex-1 flex flex-col items-center gap-[6px] py-3 px-2"
+                className="flex-1 min-w-0 flex flex-col items-center gap-[5px] min-[376px]:gap-[6px] py-3 px-1 min-[376px]:px-2"
               >
-                <div
-                  className="flex items-center justify-center rounded-full bg-[var(--color-primary-pale)]"
-                  style={{ width: "28px", height: "28px" }}
-                >
-                  <span className="text-[var(--color-primary)]">{s.icon}</span>
+                <div className="flex items-center justify-center rounded-full bg-primary-pale size-6 min-[376px]:size-7">
+                  <span className="text-primary">{s.icon}</span>
                 </div>
-                <span
-                  className="text-[var(--color-ink-muted)]"
-                  style={{ fontSize: "10px" }}
-                >
+                <span className="text-ink-muted text-[9px] min-[376px]:text-[10px]">
                   {s.label}
                 </span>
-                <span
-                  className="font-bold text-[var(--color-ink)]"
-                  style={{ fontSize: "13px" }}
-                >
+                <span className="font-bold text-ink text-center break-keep leading-[1.3] text-[12px] min-[376px]:text-caption">
                   {s.value}
                 </span>
-                <span
-                  className="text-[var(--color-ink-muted)] text-center leading-[1.4]"
-                  style={{ fontSize: "10px" }}
-                >
+                <span className="text-ink-muted text-center leading-[1.4] break-keep text-[9px] min-[376px]:text-[10px]">
                   {s.desc}
                 </span>
               </div>
@@ -395,52 +370,34 @@ export default function ResultPageView({
           sortedNames.map((item) => (
             <div
               key={item.id}
-              className="bg-[var(--color-surface)] border border-[var(--color-primary-pale)] p-4"
+              className="bg-surface border border-primary-pale p-3 min-[376px]:p-4"
               style={{ borderRadius: "var(--radius-lg)" }}
             >
-              <div className="flex items-stretch gap-3">
+              <div className="flex items-stretch gap-2 min-[376px]:gap-3">
                 {/* 순위 뱃지 */}
-                <div
-                  className="flex items-start justify-center rounded-full bg-[var(--color-primary-pale)] shrink-0 mt-[2px]"
-                  style={{ width: "32px", height: "32px" }}
-                >
-                  <span
-                    className="font-bold text-[var(--color-primary)] mt-[7px]"
-                    style={{ fontSize: "13px" }}
-                  >
+                <div className="flex items-center justify-center rounded-full bg-primary-pale shrink-0 mt-[2px] size-7 min-[376px]:size-8">
+                  <p className="font-bold text-primary text-[12px] min-[376px]:text-caption">
                     {item.rank}
-                  </span>
+                  </p>
                 </div>
 
                 {/* 좌측 정보 */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 mb-[3px]">
-                    <span
-                      className="font-extrabold text-[var(--color-ink)]"
-                      style={{ fontSize: "20px", letterSpacing: "-0.3px" }}
-                    >
+                  <div className="flex items-baseline gap-1.5 min-[376px]:gap-2 mb-[3px]">
+                    <span className="font-extrabold text-ink tracking-[-0.3px] text-[18px] min-[376px]:text-[20px]">
                       {item.name}
                     </span>
-                    <span
-                      className="text-[var(--color-ink-muted)]"
-                      style={{ fontSize: "13px" }}
-                    >
+                    <span className="text-ink-muted truncate text-[12px] min-[376px]:text-caption">
                       {item.hanja}
                     </span>
                   </div>
-                  <div className="flex items-center gap-[6px] mb-[6px]">
+                  <div className="flex items-center gap-1 min-[376px]:gap-[6px] mb-[6px]">
                     <StarRating stars={item.stars} />
-                    <span
-                      className="text-[var(--color-ink-muted)]"
-                      style={{ fontSize: "11px" }}
-                    >
+                    <span className="text-ink-muted whitespace-nowrap text-[10px] min-[376px]:text-nav">
                       {item.label}
                     </span>
                   </div>
-                  <p
-                    className="text-[var(--color-ink-muted)] mb-2 leading-[1.5]"
-                    style={{ fontSize: "12px" }}
-                  >
+                  <p className="text-ink-muted mb-2 leading-[1.5] break-keep text-[11px] min-[376px]:text-tag">
                     {item.desc}
                   </p>
                   <div className="flex flex-wrap gap-1">
@@ -451,7 +408,7 @@ export default function ResultPageView({
                 </div>
 
                 {/* 우측 고정 컬럼 */}
-                <div className="flex flex-col items-center justify-between shrink-0 w-16 pl-2">
+                <div className="flex flex-col items-center justify-between shrink-0 w-[52px] min-[376px]:w-16 pl-1 min-[376px]:pl-2">
                   <button
                     onClick={() => toggleFavorite(item.id)}
                     disabled={
@@ -459,31 +416,28 @@ export default function ResultPageView({
                     }
                     aria-pressed={favorites.has(item.id)}
                     aria-label={favorites.has(item.id) ? "저장 해제" : "저장"}
-                    className={`flex flex-col items-center gap-1 text-[var(--color-primary)] min-h-[44px] justify-center ${
+                    className={`flex flex-col items-center gap-0.5 min-[376px]:gap-1 text-primary min-h-[44px] justify-center ${
                       hasFavoritesError ? "opacity-40" : ""
                     }`}
                   >
                     <Heart
-                      size={22}
+                      className="size-5 min-[376px]:size-[22px]"
                       fill={
                         favorites.has(item.id) ? "var(--color-primary)" : "none"
                       }
                     />
-                    <span className="font-medium" style={{ fontSize: "11px" }}>
+                    <span className="font-medium text-[10px] min-[376px]:text-nav">
                       {favorites.has(item.id) ? "저장됨" : "저장"}
                     </span>
                   </button>
                   <Link
                     href={`/upgrade/${requestId}/result/${item.id}`}
-                    className="flex items-center gap-[2px] text-[var(--color-primary)] min-h-[44px] items-end justify-center pb-1"
+                    className="flex items-end justify-center gap-[2px] text-primary min-h-[44px] pb-1"
                   >
-                    <span
-                      className="font-medium"
-                      style={{ fontSize: "11px", whiteSpace: "nowrap" }}
-                    >
+                    <span className="font-medium whitespace-nowrap text-[10px] min-[376px]:text-nav">
                       자세히
                     </span>
-                    <ChevronRight size={13} />
+                    <ChevronRight className="mb-0.5 size-3 min-[376px]:size-[13px]" />
                   </Link>
                 </div>
               </div>
@@ -497,33 +451,30 @@ export default function ResultPageView({
 function NameCardSkeleton() {
   return (
     <div
-      className="bg-[var(--color-surface)] border border-[var(--color-primary-pale)] p-4 animate-pulse"
+      className="bg-surface border border-primary-pale p-3 min-[376px]:p-4 animate-pulse"
       style={{ borderRadius: "var(--radius-lg)" }}
     >
-      <div className="flex items-stretch gap-3">
+      <div className="flex items-stretch gap-2 min-[376px]:gap-3">
         {/* 순위 뱃지 */}
-        <div
-          className="rounded-full bg-[var(--color-primary-pale)] shrink-0 mt-[2px]"
-          style={{ width: "32px", height: "32px" }}
-        />
+        <div className="rounded-full bg-primary-pale shrink-0 mt-[2px] size-7 min-[376px]:size-8" />
 
         {/* 좌측 정보 */}
         <div className="flex-1 min-w-0">
           {/* 이름 행 */}
-          <div className="flex items-center gap-2 mb-[3px] h-[32px]">
-            <div className="h-6 w-[33.98px] rounded bg-[var(--color-divider)]" />
-            <div className="h-[16px] w-[22.3px] rounded bg-[var(--color-divider)]" />
+          <div className="flex items-center gap-1.5 min-[376px]:gap-2 mb-[3px] h-[28px] min-[376px]:h-[32px]">
+            <div className="h-5 min-[376px]:h-6 w-[34px] rounded bg-divider" />
+            <div className="h-[15px] min-[376px]:h-[16px] w-[22px] rounded bg-divider" />
           </div>
           {/* 별점 */}
-          <div className="h-[17.594px] w-[150.17px] rounded bg-[var(--color-divider)] mb-[6px]" />
+          <div className="h-[16px] min-[376px]:h-[17.594px] w-full max-w-[150px] rounded bg-divider mb-[6px]" />
           {/* 설명 */}
-          <div className="h-[18px] w-full max-w-[230px] rounded bg-[var(--color-divider)] mb-2" />
+          <div className="h-[17px] min-[376px]:h-[18px] w-full max-w-[230px] rounded bg-divider mb-2" />
           {/* 태그 */}
           <div className="flex flex-wrap gap-1">
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="h-[23.59px] w-[50px] rounded-full bg-[var(--color-divider)]"
+                className="h-[22px] min-[376px]:h-[23.59px] w-[46px] min-[376px]:w-[50px] rounded-full bg-divider"
               />
             ))}
           </div>
@@ -537,39 +488,36 @@ function StarRating({ stars }: { stars: number }) {
   const full = Math.floor(stars);
   const half = stars % 1 >= 0.5;
   const empty = 5 - full - (half ? 1 : 0);
+  const size = "size-3 min-[376px]:size-[13px] shrink-0";
   return (
-    <div className="flex items-center gap-[2px]">
+    <div className="flex items-center gap-[2px] shrink-0">
       {Array.from({ length: full }).map((_, i) => (
-        <Star key={`f${i}`} size={13} fill="#FFBA00" stroke="none" />
+        <Star key={`f${i}`} className={size} fill="#FFBA00" stroke="none" />
       ))}
-      {half && <StarHalf size={13} fill="#FFBA00" stroke="none" />}
+      {half && <StarHalf className={size} fill="#FFBA00" stroke="none" />}
       {Array.from({ length: empty }).map((_, i) => (
-        <Star key={`e${i}`} size={13} fill="none" stroke="#FFBA00" />
+        <Star key={`e${i}`} className={size} fill="none" stroke="#FFBA00" />
       ))}
     </div>
   );
 }
 
 function TagPill({ label }: { label: string }) {
+  const base =
+    "px-1.5 min-[376px]:px-2 py-[3px] text-[10px] min-[376px]:text-[11px] font-medium rounded-full whitespace-nowrap";
   const isGreen = label === "사주 조화 우수";
   const isYellow = label.includes("발음") || label.includes("기운");
   if (isGreen) {
     return (
-      <span className="px-2 py-[3px] text-[11px] font-medium rounded-full bg-[#E8F5E9] text-[#2E7D32]">
-        {label}
-      </span>
+      <span className={`${base} bg-[#E8F5E9] text-[#2E7D32]`}>{label}</span>
     );
   }
   if (isYellow) {
     return (
-      <span className="px-2 py-[3px] text-[11px] font-medium rounded-full bg-[#FFF8E1] text-[#F57F17]">
-        {label}
-      </span>
+      <span className={`${base} bg-[#FFF8E1] text-[#F57F17]`}>{label}</span>
     );
   }
   return (
-    <span className="px-2 py-[3px] text-[11px] font-medium rounded-full bg-[var(--color-primary-pale)] text-[var(--color-primary)]">
-      {label}
-    </span>
+    <span className={`${base} bg-primary-pale text-primary`}>{label}</span>
   );
 }
