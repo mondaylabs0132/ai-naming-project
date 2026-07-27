@@ -78,12 +78,9 @@ export default function MyPage() {
   return (
     <div className="pb-16">
       {/* ── 헤더 ── */}
-      <div className="flex justify-between items-center px-5 pt-5 pb-3">
-        <div className="flex items-center gap-1">
-          <span
-            className="font-bold text-[var(--color-ink)]"
-            style={{ fontSize: "24px" }}
-          >
+      <div className="flex justify-between items-center gap-2 px-5 pt-5 pb-3">
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="font-bold text-ink text-page-title truncate">
             마이페이지
           </span>
           <Image
@@ -91,33 +88,26 @@ export default function MyPage() {
             alt="별"
             width={32}
             height={32}
-            className="inline-block h-8 w-8"
+            className="inline-block h-8 w-8 shrink-0"
           />
         </div>
-        <Bell size={22} className="text-[var(--color-ink-muted)]" />
+        <Bell size={22} className="text-ink-muted shrink-0" />
       </div>
 
       {/* ── Section 0: 유저 정보 ── */}
       <div className="mx-5 mb-4">
         <SectionCard>
-          <div className="flex items-center gap-3">
-            <div
-              className="rounded-full bg-[var(--color-primary-pale)] flex items-center justify-center shrink-0"
-              style={{ width: "64px", height: "64px" }}
-            >
-              <Star size={28} className="text-[var(--color-primary-muted)]" />
+          <div className="flex items-center gap-2.5 min-[376px]:gap-3">
+            <div className="rounded-full bg-primary-pale flex items-center justify-center shrink-0 size-8 min-[376px]:size-16">
+              <Star className="text-primary-muted size-4 min-[376px]:size-7" />
             </div>
             <div className="flex-1 min-w-0">
               <p
-                className={`font-semibold text-[var(--color-ink)] truncate ${blurClass}`}
-                style={{ fontSize: "15px" }}
+                className={`font-semibold text-ink truncate text-caption min-[376px]:text-body ${blurClass}`}
               >
                 {loading ? "example@email.com" : (summary?.email ?? "-")}
               </p>
-              <p
-                className="text-[var(--color-ink-muted)]"
-                style={{ fontSize: "13px" }}
-              >
+              <p className="text-ink-muted truncate text-nav min-[376px]:text-caption">
                 가입일{" "}
                 <span className={blurClass}>
                   {loading
@@ -130,10 +120,9 @@ export default function MyPage() {
               type="button"
               onClick={handleLogout}
               disabled={loggingOut}
-              className="flex items-center gap-1 shrink-0 whitespace-nowrap border border-[var(--color-primary)] text-[var(--color-primary)] px-3 py-1 disabled:opacity-50"
-              style={{ fontSize: "13px", borderRadius: "var(--radius-pill)" }}
+              className="flex items-center gap-0.5 min-[376px]:gap-1 shrink-0 whitespace-nowrap border border-primary text-primary px-2 py-1 min-[376px]:px-3 rounded-pill text-[10px] min-[376px]:text-caption disabled:opacity-50"
             >
-              <LogOut size={13} />
+              <LogOut className="size-[11px] min-[376px]:size-[13px]" />
               로그아웃
             </button>
           </div>
@@ -144,7 +133,7 @@ export default function MyPage() {
       <div className="mx-5 mb-3">
         <SectionCard>
           <SectionHeader badge="1" label="나의 이름 분석" />
-          <div className="flex flex-row gap-3 items-stretch">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
             <MiniCard
               image={
                 <Image
@@ -156,30 +145,25 @@ export default function MyPage() {
                 />
               }
             >
-              <span
-                className="text-[var(--color-ink-muted)]"
-                style={{ fontSize: "11px" }}
-              >
+              <span className="text-ink-muted text-nav break-keep">
                 최근 분석 결과
               </span>
               <span
-                className={`font-bold text-[var(--color-primary)] ${blurClass}`}
-                style={{ fontSize: "16px" }}
+                className={`font-bold text-primary text-section-title break-keep ${blurClass}`}
               >
                 {loading
                   ? "0개 이름"
                   : `${summary?.latestNameCount ?? 0}개 이름`}
               </span>
               <span
-                className={`text-[var(--color-ink-muted)] ${blurClass}`}
-                style={{ fontSize: "11px" }}
+                className={`text-ink-muted text-nav break-keep ${blurClass}`}
               >
                 {loading
                   ? "2024.00.00 분석"
                   : `${formatDate(summary?.latestAnalyzedAt ?? null)} 분석`}
               </span>
             </MiniCard>
-            <div className="basis-[60%] flex flex-col justify-center">
+            <div className="w-full min-w-0 sm:basis-3/5 flex flex-col justify-center">
               <ListRow icon={<FileText size={16} />} label="결과 보러가기" />
               <ListRow icon={<Clock size={16} />} label="분석 이력 전체보기" />
             </div>
@@ -191,7 +175,7 @@ export default function MyPage() {
       <div className="mx-5 mb-3">
         <SectionCard>
           <SectionHeader badge="2" label="쿠폰/혜택" />
-          <div className="flex flex-row gap-3 items-stretch">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
             <MiniCard
               image={
                 <Image
@@ -203,20 +187,16 @@ export default function MyPage() {
                 />
               }
             >
-              <span
-                className="text-[var(--color-ink-muted)]"
-                style={{ fontSize: "11px" }}
-              >
+              <span className="text-ink-muted text-nav break-keep">
                 보유 쿠폰
               </span>
               <span
-                className={`font-bold text-[var(--color-primary)] ${blurClass}`}
-                style={{ fontSize: "16px" }}
+                className={`font-bold text-primary text-section-title break-keep ${blurClass}`}
               >
                 {loading ? "0장" : `${summary?.activeCouponCount ?? 0}장`}
               </span>
             </MiniCard>
-            <div className="basis-[60%] flex flex-col justify-center">
+            <div className="w-full min-w-0 sm:basis-3/5 flex flex-col justify-center">
               <ListRow icon={<Receipt size={16} />} label="쿠폰 사용 내역" />
             </div>
           </div>
@@ -227,7 +207,7 @@ export default function MyPage() {
       <div className="mx-5 mb-3">
         <SectionCard>
           <SectionHeader badge="3" label="결제 내역" />
-          <div className="flex flex-row gap-3 items-stretch">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
             <MiniCard
               image={
                 <Image
@@ -239,30 +219,25 @@ export default function MyPage() {
                 />
               }
             >
-              <span
-                className="text-[var(--color-ink-muted)]"
-                style={{ fontSize: "11px" }}
-              >
+              <span className="text-ink-muted text-nav break-keep">
                 최근 결제
               </span>
               <span
-                className={`font-bold text-[var(--color-ink)] ${blurClass}`}
-                style={{ fontSize: "16px" }}
+                className={`font-bold text-ink text-section-title break-keep ${blurClass}`}
               >
                 {loading
                   ? "0,000원"
                   : formatWon(summary?.latestPaidAmount ?? null)}
               </span>
               <span
-                className={`text-[var(--color-ink-muted)] ${blurClass}`}
-                style={{ fontSize: "11px" }}
+                className={`text-ink-muted text-nav break-keep ${blurClass}`}
               >
                 {loading
                   ? "2024.00.00"
                   : formatDate(summary?.latestPaidAt ?? null)}
               </span>
             </MiniCard>
-            <div className="basis-[60%] flex flex-col justify-center">
+            <div className="w-full min-w-0 sm:basis-3/5 flex flex-col justify-center">
               <ListRow
                 icon={<FileText size={16} />}
                 label="결제 내역 전체보기"
@@ -277,7 +252,8 @@ export default function MyPage() {
       <div className="mx-5 mb-3">
         <SectionCard>
           <SectionHeader badge="4" label="고객 지원" />
-          <div className="flex flex-row gap-2">
+          {/* 모바일: 세로 목록 / sm 이상: 3열 */}
+          <div className="flex flex-col gap-2 sm:flex-row">
             {[
               { icon: <Megaphone size={18} />, label: "공지사항" },
               { icon: <HelpCircle size={18} />, label: "자주 묻는 질문" },
@@ -285,19 +261,15 @@ export default function MyPage() {
             ].map((item) => (
               <div
                 key={item.label}
-                className="flex-1 flex flex-row items-center justify-center gap-2 py-2 border border-[var(--color-divider)]"
-                style={{ borderRadius: "var(--radius-md)" }}
+                className="flex-1 min-w-0 flex flex-row items-center gap-2 px-3 py-2 sm:px-2 sm:justify-center border border-divider rounded-md"
               >
-                <span className="text-[var(--color-primary)]">{item.icon}</span>
-                <span
-                  className="text-[var(--color-ink)]"
-                  style={{ fontSize: "13px" }}
-                >
+                <span className="text-primary shrink-0">{item.icon}</span>
+                <span className="text-ink break-keep text-caption">
                   {item.label}
                 </span>
                 <ChevronRight
                   size={14}
-                  className="text-[var(--color-ink-muted)]"
+                  className="text-ink-muted shrink-0 ml-auto sm:ml-0"
                 />
               </div>
             ))}
@@ -320,19 +292,13 @@ export default function MyPage() {
             ].map((item) => (
               <div
                 key={item.label}
-                className="flex items-center gap-3 px-4 py-[14px]"
+                className="flex items-center gap-2.5 min-[376px]:gap-3 px-3 min-[376px]:px-4 py-[14px]"
               >
-                <span className="text-[var(--color-primary)]">{item.icon}</span>
-                <span
-                  className="flex-1 text-[var(--color-ink)]"
-                  style={{ fontSize: "15px" }}
-                >
+                <span className="text-primary shrink-0">{item.icon}</span>
+                <span className="flex-1 min-w-0 text-ink break-keep text-caption min-[376px]:text-body">
                   {item.label}
                 </span>
-                <ChevronRight
-                  size={16}
-                  className="text-[var(--color-ink-muted)]"
-                />
+                <ChevronRight size={16} className="text-ink-muted shrink-0" />
               </div>
             ))}
           </div>
@@ -343,26 +309,17 @@ export default function MyPage() {
       <div className="mx-5 mb-3">
         <SectionCard>
           <SectionHeader badge="6" label="계정 관리" />
-          <div
-            className="flex items-center gap-3 px-4 py-[14px] border border-[var(--color-divider)]"
-            style={{ borderRadius: "var(--radius-lg)" }}
-          >
-            <Trash2 size={20} className="text-[var(--color-danger)]" />
-            <div className="flex-1 flex flex-col">
-              <span
-                className="font-semibold text-[var(--color-danger)]"
-                style={{ fontSize: "15px" }}
-              >
+          <div className="flex items-center gap-2.5 min-[376px]:gap-3 px-3 min-[376px]:px-4 py-[14px] border border-divider rounded-lg">
+            <Trash2 size={20} className="text-danger shrink-0" />
+            <div className="flex-1 min-w-0 flex flex-col">
+              <span className="font-semibold text-danger text-caption min-[376px]:text-body">
                 계정 삭제
               </span>
-              <span
-                className="text-[var(--color-ink-muted)]"
-                style={{ fontSize: "12px" }}
-              >
+              <span className="text-ink-muted break-keep text-nav min-[376px]:text-tag">
                 계정을 삭제하면 모든 데이터가 복구되지 않습니다.
               </span>
             </div>
-            <ChevronRight size={16} className="text-[var(--color-danger)]" />
+            <ChevronRight size={16} className="text-danger shrink-0" />
           </div>
         </SectionCard>
       </div>

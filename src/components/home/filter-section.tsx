@@ -21,7 +21,7 @@ export default function FilterSection() {
         {FILTERS.map((f, i) => (
           <div
             key={f.label}
-            className="flex-1 flex flex-row items-center justify-center gap-[6px] py-4"
+            className="flex-1 flex flex-row items-center justify-center gap-[5px] py-4"
             style={{
               borderLeft: i !== 0 ? "1px solid #EEEBF8" : "none",
             }}
@@ -29,7 +29,7 @@ export default function FilterSection() {
             {f.isChar ? (
               <span
                 className="font-bold text-[#7C6FCD]"
-                style={{ fontSize: "24px" }}
+                style={{ fontSize: "clamp(18px, 5vw, 24px)" }}
               >
                 漢
               </span>
@@ -39,12 +39,16 @@ export default function FilterSection() {
                 alt=""
                 width={f.iconSize}
                 height={f.iconSize}
-                style={{ objectFit: "contain" }}
+                style={{
+                  width: "clamp(18px, 5vw, 24px)",
+                  height: "clamp(18px, 5vw, 24px)",
+                  objectFit: "contain",
+                }}
               />
             )}
             <span
-              className="font-medium text-[#2D2540]"
-              style={{ fontSize: "13px" }}
+              className="font-medium text-[#2D2540] whitespace-nowrap"
+              style={{ fontSize: "clamp(10px, 3vw, 13px)" }}
             >
               {f.label}
             </span>

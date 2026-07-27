@@ -4,22 +4,26 @@ import { X } from "lucide-react";
 
 export default function FunnelHeader() {
   return (
-    <header className="bg-bg flex h-[72px] items-center justify-between px-7">
+    <header className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-5 backdrop-blur-md">
       <Image
         src="/assets/logo.png"
-        alt="이름담다 로고"
-        width={100}
+        alt="첫지음 로고"
+        width={80}
         height={32}
         priority
-        className="h-auto w-[100px] object-contain"
+        className="h-auto w-[80px] py-3 object-contain"
       />
 
       <Link
         href="/"
         aria-label="홈으로 이동"
-        className="-mr-1 flex h-10 w-10 items-center justify-center text-ink"
+        className="-mr-1 flex size-[clamp(36px,10vw,40px)] items-center justify-center text-ink"
       >
-        <X aria-hidden="true" size={32} strokeWidth={2.25} />
+        <X
+          aria-hidden="true"
+          className="size-[clamp(26px,7vw,32px)]"
+          strokeWidth={2.25}
+        />
       </Link>
     </header>
   );

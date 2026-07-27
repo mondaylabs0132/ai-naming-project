@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import GeneratingError from "./generating-error";
 
 const TIPS = [
-  "분석 시간은 평균 20~40초 정도 소요돼요.",
+  "분석 시간은 평균 40~60초 정도 소요돼요.",
   "더 정확한 결과를 위해 데이터를 꼼꼼히 분석하고 있어요.",
   "잠시만 기다려주시면, 아이에게 꼭 맞는 이름을 추천해드릴게요.",
 ];
@@ -211,15 +211,15 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
         </p>
         <ul className="mt-3 space-y-2">
           {TIPS.map((tip) => (
-            <li key={tip} className="flex items-center gap-2">
+            <li key={tip} className="flex items-center gap-1">
               <Image
                 src="/assets/check.png"
                 alt="check"
                 width={1024}
                 height={1024}
-                className="w-5 h-auto mt-0.5 shrink-0 object-contain"
+                className="w-5 h-auto mt-0.5 shrink-0 object-contain self-start"
               />
-              <span className="text-[10px] min-[376px]:text-body text-ink">
+              <span className="text-[clamp(12px,4vw,15px)] text-ink">
                 {tip}
               </span>
             </li>
@@ -227,7 +227,7 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
         </ul>
       </div>
 
-      <p className="mt-6 font-semibold text-ink leading-[1.7]">
+      <p className="mt-6 text-[clamp(14px,3.6vw,15px)] font-semibold text-ink leading-[1.7]">
         분석 결과는 입력하신 정보 외에는 저장되지 않아요.
         <br />
         안심하고 기다려주세요 💜

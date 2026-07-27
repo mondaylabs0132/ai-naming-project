@@ -57,9 +57,12 @@ export default async function ResultPage({
       <div className="px-5 pt-2">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1 space-y-2">
-            <p className="flex items-center gap-1 font-chalkboard text-ink">
-              우리 아이에게 어울리는 이름{" "}
-              <span className="text-[10px] pt-1" aria-hidden="true">
+            <p className="font-chalkboard text-ink whitespace-nowrap">
+              우리 아이에게 어울리는 이름
+              <span
+                className="ml-1 align-middle text-[10px]"
+                aria-hidden="true"
+              >
                 💜
               </span>
             </p>

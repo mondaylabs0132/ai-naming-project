@@ -56,6 +56,19 @@ function formatWon(amount: number) {
   return `${amount.toLocaleString("ko-KR")}원`;
 }
 
+/**
+ * 토스 결제창을 iframe 모달로 띄울지, 현재 창을 전환할지 결정한다.
+ * 모달은 폭이 고정이라 좁은 화면에서 잘리는데, SDK 자동 판별은 UA 기준이라 놓치는
+ * 경우가 있어 실제 뷰포트로 직접 판단한다.
+ */
+function resolveWindowTarget(): "iframe" | "self" {
+  if (typeof window === "undefined") return "self";
+  const tooNarrow = window.matchMedia(
+    "(max-width: 768px), (max-height: 720px), (pointer: coarse)",
+  ).matches;
+  return tooNarrow ? "self" : "iframe";
+}
+
 export default function CheckoutClient({
   resultId,
   initialErrorCode = null,
@@ -146,8 +159,10 @@ export default function CheckoutClient({
         orderName: data.orderName,
         successUrl: data.successUrl,
         failUrl: data.failUrl,
+        windowTarget: resolveWindowTarget(),
       });
       // 성공 시 successUrl로 redirect. 여기 도달하면 창을 닫았거나 취소한 경우.
+      // (windowTarget: "self"면 현재 창이 결제창으로 바뀌므로 여기까지 오지 않는다)
       setPaying(false);
     } catch {
       // 유저 취소(USER_CANCEL) 포함 — 버튼 복구 + 안내

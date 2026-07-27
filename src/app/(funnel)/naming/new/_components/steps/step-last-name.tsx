@@ -134,15 +134,15 @@ export default function StepLastName({
 
   return (
     <FunnelFrame currentStep={currentStep} onNext={handleNext} onPrev={onPrev}>
-      <section className="bg-bg px-11 pb-4 pt-2">
-        <div className="grid min-h-[230px] grid-cols-[minmax(0,1fr)_170px] items-start gap-2 overflow-hidden">
-          <div className="pt-8">
-            <h1 className="text-[29px] font-bold leading-[1.28] tracking-normal text-ink">
+      <section className="bg-bg px-[clamp(20px,5.5vw,44px)] pb-4 pt-2">
+        <div className="flex min-h-[170px] items-start justify-between gap-2 overflow-hidden mb-4">
+          <div className="min-w-0 flex-1 pt-6">
+            <h1 className="text-[clamp(20px,5.6vw,26px)] font-bold leading-[1.28] tracking-normal text-ink">
               아이의 성씨를
               <br />
               입력해주세요
             </h1>
-            <p className="mt-4 text-body font-semibold leading-[1.7] tracking-normal text-ink-muted">
+            <p className="mt-3 text-[clamp(12px,3.2vw,13.5px)] font-semibold leading-[1.6] tracking-normal text-ink-muted">
               정확한 성씨는
               <br />더 어울리는 이름을 찾는 데 도움이 돼요.
             </p>
@@ -154,19 +154,19 @@ export default function StepLastName({
             width={260}
             height={260}
             priority
-            className="h-[208px] w-[208px] max-w-none -translate-x-5 object-cover object-center"
+            className="h-[clamp(120px,40vw,200px)] w-[clamp(120px,40vw,200px)] max-w-none shrink-0 self-center object-cover object-center"
           />
         </div>
 
-        <div className="rounded-[22px] bg-white px-6 py-7 shadow-card">
+        <div className="rounded-[22px] bg-white px-[clamp(18px,4.5vw,24px)] py-6 shadow-card">
           <label
             htmlFor="last-name"
-            className="block text-[18px] font-bold leading-none tracking-normal text-ink"
+            className="block text-[16px] font-bold leading-none tracking-normal text-ink"
           >
             성씨 입력
           </label>
 
-          <div className="relative mt-7">
+          <div className="relative mt-5">
             <input
               id="last-name"
               type="text"
@@ -182,12 +182,12 @@ export default function StepLastName({
               placeholder="예) 김, 이, 박"
               aria-describedby="last-name-help last-name-error"
               aria-invalid={Boolean(surnameError)}
-              className="h-[68px] w-full rounded-lg border-2 border-primary bg-white px-5 pr-24 text-[24px] font-semibold leading-none tracking-normal text-ink shadow-[0_0_0_4px_rgba(124,111,205,0.04)] outline-none placeholder:text-ink-light focus:border-primary focus:shadow-[0_0_0_4px_rgba(124,111,205,0.12)]"
+              className="h-[clamp(52px,14vw,60px)] w-full rounded-lg border-2 border-primary bg-white px-4 pr-20 text-[clamp(18px,5vw,22px)] font-semibold leading-none tracking-normal text-ink shadow-[0_0_0_4px_rgba(124,111,205,0.04)] outline-none placeholder:text-ink-light focus:border-primary focus:shadow-[0_0_0_4px_rgba(124,111,205,0.12)]"
             />
 
             {value && (
-              <div className="pointer-events-none absolute right-5 top-1/2 flex -translate-y-1/2 items-center gap-2 text-primary">
-                <span className="max-w-10 truncate text-[22px] font-semibold leading-none tracking-normal">
+              <div className="pointer-events-none absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-primary">
+                <span className="max-w-8 truncate text-[clamp(18px,5vw,22px)] font-semibold leading-none tracking-normal">
                   {value.hanja}
                 </span>
                 <Check
@@ -210,22 +210,22 @@ export default function StepLastName({
 
           <div
             id="last-name-help"
-            className="mt-5 flex items-center gap-2 text-[15px] font-medium leading-normal tracking-normal text-ink-muted"
+            className="mt-4 flex items-center gap-2 text-[clamp(12px,3.4vw,14px)] font-medium leading-normal tracking-normal text-ink-muted"
           >
             <span
               aria-hidden="true"
-              className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-extrabold leading-none text-white"
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-extrabold leading-none text-white"
             >
               i
             </span>
             한 글자 또는 두 글자 성씨를 입력할 수 있어요.
           </div>
 
-          <div className="mt-8 rounded-[18px] bg-[#F5F3FA] px-5 py-6">
-            <p className="text-[17px] font-bold leading-none tracking-normal text-ink">
+          <div className="mt-6 rounded-[18px] bg-[#F5F3FA] px-4 py-5">
+            <p className="text-[15px] font-bold leading-none tracking-normal text-ink">
               예시 성씨
             </p>
-            <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-6">
+            <div className="mt-4 grid grid-cols-3 gap-2.5 min-[440px]:grid-cols-6">
               {EXAMPLE_LAST_NAMES.map((name) => {
                 const isSelected = query === name;
 
@@ -236,7 +236,7 @@ export default function StepLastName({
                     onClick={() => handleQueryChange(name)}
                     aria-pressed={isSelected}
                     className={[
-                      "flex h-14 items-center justify-center rounded-md bg-white text-[24px] font-semibold leading-none tracking-normal text-ink shadow-card transition",
+                      "flex h-12 items-center justify-center rounded-md bg-white text-[clamp(18px,5vw,22px)] font-semibold leading-none tracking-normal text-ink shadow-card transition",
                       isSelected
                         ? "ring-2 ring-primary"
                         : "ring-1 ring-divider hover:ring-primary-light",
@@ -252,7 +252,7 @@ export default function StepLastName({
           <p
             id="last-name-error"
             className={[
-              "mt-3 text-[14px] font-semibold leading-normal tracking-normal text-danger",
+              "mt-3 text-[13px] font-semibold leading-normal tracking-normal text-danger",
               surnameError ? "block" : "hidden",
             ].join(" ")}
           >
@@ -273,7 +273,7 @@ function SurnameDropdown({
   const renderContent = () => {
     if (status === "loading") {
       return (
-        <p className="flex items-center gap-2 px-5 py-4 text-[15px] font-medium leading-normal tracking-normal text-ink-muted">
+        <p className="flex items-center gap-2 px-4 py-3.5 text-[14px] font-medium leading-normal tracking-normal text-ink-muted">
           <LoaderCircle
             aria-hidden="true"
             className="size-4 animate-spin text-primary"
@@ -286,7 +286,7 @@ function SurnameDropdown({
 
     if (status === "error") {
       return (
-        <p className="flex items-center gap-2 px-5 py-4 text-[15px] font-semibold leading-normal tracking-normal text-danger">
+        <p className="flex items-center gap-2 px-4 py-3.5 text-[14px] font-semibold leading-normal tracking-normal text-danger">
           <CircleAlert
             aria-hidden="true"
             className="size-4"
@@ -303,7 +303,7 @@ function SurnameDropdown({
 
     if (options.length === 0) {
       return (
-        <p className="px-5 py-4 text-[15px] font-medium leading-normal tracking-normal text-ink-muted">
+        <p className="px-4 py-3.5 text-[14px] font-medium leading-normal tracking-normal text-ink-muted">
           일치하는 성씨가 없어요.
         </p>
       );
@@ -322,25 +322,25 @@ function SurnameDropdown({
           }}
           aria-pressed={isSelected}
           className={[
-            "flex min-h-14 w-full items-center justify-between px-5 text-left transition",
+            "flex min-h-12 w-full items-center justify-between gap-3 px-4 text-left transition",
             isSelected
               ? "bg-surface-section text-primary"
               : "bg-white text-ink hover:bg-surface-section",
           ].join(" ")}
         >
-          <span className="flex items-center gap-3">
-            <span className="text-[22px] font-semibold leading-none tracking-normal">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="truncate text-[clamp(18px,5vw,20px)] font-semibold leading-none tracking-normal">
               {option.hangul}
             </span>
             {isSelected && (
               <Check
                 aria-hidden="true"
-                className="size-5 text-primary"
+                className="size-5 shrink-0 text-primary"
                 strokeWidth={2.8}
               />
             )}
           </span>
-          <span className="text-[18px] font-medium leading-none tracking-normal text-ink-muted">
+          <span className="shrink-0 text-[16px] font-medium leading-none tracking-normal text-ink-muted">
             {option.hanja}
           </span>
         </button>
@@ -349,7 +349,7 @@ function SurnameDropdown({
   };
 
   return (
-    <div className="absolute left-0 right-0 top-[76px] z-20 overflow-hidden rounded-lg border border-divider bg-white shadow-card">
+    <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-divider bg-white shadow-card">
       {renderContent()}
     </div>
   );

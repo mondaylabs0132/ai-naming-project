@@ -10,7 +10,7 @@ export default function ProgressBar({ currentStep = 1 }: ProgressBarProps) {
   return (
     <section
       aria-label={`진행 단계 ${currentStep} / ${TOTAL_STEPS}`}
-      className="bg-bg px-11 py-7"
+      className="bg-bg px-[clamp(20px,5.5vw,44px)] py-7"
     >
       <p className="mb-5 text-stat font-semibold leading-none tracking-normal">
         <span className="text-primary">{currentStep}</span>

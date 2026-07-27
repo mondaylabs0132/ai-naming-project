@@ -49,11 +49,7 @@ function getVerifyOtpMessage(error: AuthErrorResponse) {
   return "인증번호를 확인해주세요.";
 }
 
-export default function UpgradeEmailClient({
-  resultId,
-}: {
-  resultId: string;
-}) {
+export default function UpgradeEmailClient({ resultId }: { resultId: string }) {
   const router = useRouter();
   const [step, setStep] = useState<"email" | "otp">("email");
   const [email, setEmail] = useState("");
@@ -139,7 +135,7 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
     <section className="mt-[78px] mb-12" aria-labelledby="upgrade-email-title">
       <h1
         id="upgrade-email-title"
-        className="text-[30px] font-extrabold leading-[1.45] tracking-[-0.4px] text-ink"
+        className="text-[26px] font-extrabold leading-[1.45] tracking-[-0.4px] text-ink"
       >
         이메일로
         <br />
@@ -187,19 +183,19 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
         </div>
       </form>
 
-      <aside className="mt-5 flex items-center rounded-xl border border-divider bg-white px-4 py-3 text-left shadow-[0_2px_12px_rgba(124,111,205,0.05)]">
+      <aside className="mt-5 flex items-center rounded-xl border border-divider bg-white px-3 py-2.5 text-left shadow-[0_2px_12px_rgba(124,111,205,0.05)] sm:px-4 sm:py-3">
         <Image
           src="/assets/auth/lock.png"
           alt=""
           width={1024}
           height={1024}
-          className="h-[55px] w-[55px] shrink-0 object-contain"
+          className="h-[46px] w-[46px] shrink-0 object-contain sm:h-[55px] sm:w-[55px]"
         />
         <div>
-          <p className="text-[15px] font-bold leading-[1.45] tracking-[-0.2px] text-primary">
+          <p className="text-[14px] font-bold leading-[1.45] tracking-[-0.2px] text-primary sm:text-[15px]">
             입력하신 정보는 안전하게 보호돼요
           </p>
-          <p className="mt-1 text-[14px] font-semibold leading-[1.45] tracking-[-0.1px] text-ink-muted">
+          <p className="mt-0.5 sm:mt-1 text-[13px] font-semibold leading-[1.45] tracking-[-0.1px] text-ink-muted sm:text-[14px]">
             외부에 공개되지 않아요
           </p>
         </div>
@@ -343,7 +339,7 @@ function OtpStep({
     <section className="mt-[78px]" aria-labelledby="upgrade-sent-title">
       <h1
         id="upgrade-sent-title"
-        className="text-[30px] font-extrabold leading-[1.45] tracking-[-0.4px] text-ink"
+        className="text-[26px] font-extrabold leading-[1.45] tracking-[-0.4px] text-ink"
       >
         이메일로 전송된
         <br />
@@ -357,7 +353,7 @@ function OtpStep({
       <form className="mt-10" onSubmit={handleSubmit}>
         <input type="hidden" name="code" value={code} />
 
-        <fieldset className="grid grid-cols-6 gap-2">
+        <fieldset className="grid grid-cols-6 gap-1 min-[430px]:gap-2">
           <legend className="sr-only">인증번호 6자리</legend>
           {digits.map((digit, index) => (
             <label key={index} className="block min-w-0">
@@ -404,7 +400,7 @@ function OtpStep({
                     inputRefs.current[index - 1]?.select();
                   }
                 }}
-                className="h-[68px] w-full min-w-0 rounded-lg border border-divider bg-white text-center text-[22px] font-bold leading-none tracking-[-0.2px] text-ink shadow-[0_2px_10px_rgba(45,37,64,0.03)] outline-none transition placeholder:text-ink-light focus:border-primary-light focus:ring-1 focus:ring-primary-light min-[430px]:h-[82px]"
+                className="h-[55px] w-full min-w-0 rounded-lg border border-divider bg-white text-center text-[22px] font-bold leading-none tracking-[-0.2px] text-ink shadow-[0_2px_10px_rgba(45,37,64,0.03)] outline-none transition placeholder:text-ink-light focus:border-primary-light focus:ring-1 focus:ring-primary-light min-[430px]:h-[82px]"
               />
             </label>
           ))}
@@ -430,21 +426,27 @@ function OtpStep({
         </div>
 
         <div className="mt-4 flex min-h-[72px] items-center justify-between gap-3 rounded-xl border border-divider bg-white px-5 text-left shadow-[0_2px_12px_rgba(124,111,205,0.05)]">
-          <p className="text-[15px] font-semibold leading-none tracking-[-0.2px] text-ink">
-            인증번호가 오지 않았나요?
-          </p>
-          <button
-            type="button"
-            disabled={resendRemaining > 0 || isResending}
-            onClick={handleResend}
-            className="shrink-0 rounded-lg bg-primary-pale p-4 text-[15px] font-bold leading-none tracking-[-0.2px] text-primary transition hover:bg-primary-light hover:text-white disabled:cursor-not-allowed disabled:bg-primary-pale/40 disabled:text-primary-muted/70 disabled:hover:bg-primary-pale/40 disabled:hover:text-primary-muted/70"
-          >
-            {resendRemaining > 0
-              ? `재발송 (00:${String(resendRemaining).padStart(2, "0")})`
-              : isResending
-                ? "재발송 중"
-                : "재발송"}
-          </button>
+          <div className="min-w-0">
+            <p className="text-[14px] whitespace-nowrap font-semibold leading-none tracking-[-0.2px] text-ink">
+              인증번호가 오지 않았나요?
+            </p>
+            {resendRemaining > 0 && (
+              <p className="mt-2 text-[13px] font-semibold leading-none tracking-[-0.1px] text-ink-muted tabular-nums">
+                <span className="text-primary">{`00:${String(resendRemaining).padStart(2, "0")}`}</span>
+                {" 후 재발송 가능"}
+              </p>
+            )}
+          </div>
+          {resendRemaining <= 0 && (
+            <button
+              type="button"
+              disabled={isResending}
+              onClick={handleResend}
+              className="shrink-0 rounded-lg bg-primary-pale p-4 text-[15px] font-bold leading-none tracking-[-0.2px] text-primary transition hover:bg-primary-light hover:text-white disabled:cursor-not-allowed disabled:bg-primary-pale/40 disabled:text-primary-muted/70 disabled:hover:bg-primary-pale/40 disabled:hover:text-primary-muted/70"
+            >
+              {isResending ? "재발송 중" : "재발송"}
+            </button>
+          )}
         </div>
 
         <div className="mt-4 min-h-[20px]">
@@ -462,7 +464,7 @@ function OtpStep({
       <button
         type="button"
         onClick={onChangeEmail}
-        className="mt-4 mb-12 block w-fit text-[16px] font-bold leading-none tracking-[-0.2px] text-primary underline decoration-primary underline-offset-4"
+        className="mt-4 mb-12 block w-fit text-[15px] font-bold leading-none tracking-[-0.2px] text-primary underline decoration-primary underline-offset-4"
       >
         이메일 변경
       </button>

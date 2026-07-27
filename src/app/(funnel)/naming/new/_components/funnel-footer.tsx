@@ -80,24 +80,24 @@ export default function FunnelFooter({
   };
 
   return (
-    <footer className="bg-bg px-11 pb-8 pt-6">
+    <footer className="bg-bg px-[clamp(20px,5.5vw,44px)] pb-8 pt-6">
       <button
         type="button"
         onClick={handleNext}
         disabled={isSubmitting}
-        className="relative flex h-[72px] w-full items-center justify-center rounded-lg bg-primary px-16 text-[23px] font-semibold leading-none tracking-normal text-white shadow-btn select-none"
+        className="relative flex h-[clamp(56px,15vw,68px)] w-full items-center justify-center rounded-lg bg-primary px-[clamp(16px,5vw,28px)] text-[clamp(17px,4.8vw,22px)] font-semibold leading-none tracking-normal text-white shadow-btn select-none"
       >
         {isSubmitting ? "저장 중" : isLastStep ? "이름 추천 받기" : "다음"}
         {isSubmitting ? (
           <LoaderCircle
             aria-hidden="true"
-            className="absolute right-8 top-1/2 size-8 -translate-y-1/2 animate-spin"
+            className="absolute right-[clamp(16px,5vw,28px)] top-1/2 size-[clamp(22px,6vw,30px)] -translate-y-1/2 animate-spin"
             strokeWidth={2.2}
           />
         ) : (
           <ArrowRight
             aria-hidden="true"
-            className="absolute right-8 top-1/2 size-10 -translate-y-1/2"
+            className="absolute right-[clamp(16px,5vw,28px)] top-1/2 size-[clamp(26px,7vw,36px)] -translate-y-1/2"
             strokeWidth={1.8}
           />
         )}
