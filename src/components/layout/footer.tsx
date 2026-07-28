@@ -2,12 +2,13 @@
 const BUSINESS_INFO = [
   { label: "상호명", value: "먼데이랩스" },
   { label: "대표자명", value: "예병수" },
-  { label: "사업자등록번호", value: "103-35-93380" },
+  { label: "사업자등록번호", value: "203-35-93380" },
   {
     label: "사업장 주소",
     value: "서울특별시 강남구 학동로56길 26, 6층 600-4호",
   },
-  { label: "유선번호", value: "010-2873-0132" },
+  { label: "전화번호", value: "010-2873-0132" },
+  { label: "이메일", value: "mondaylabs0132@gmail.com" },
 ];
 
 export default function Footer() {
