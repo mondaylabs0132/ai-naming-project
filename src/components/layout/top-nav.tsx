@@ -13,7 +13,9 @@ export default function TopNav() {
     pathname.startsWith("/mypage/results") ||
     pathname.startsWith("/naming") ||
     pathname.startsWith("/upgrade") ||
-    pathname.startsWith("/login");
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/terms") ||
+    pathname.startsWith("/privacy");
   if (isHidden) return null;
 
   return (
