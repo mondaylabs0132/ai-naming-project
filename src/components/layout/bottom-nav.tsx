@@ -68,7 +68,14 @@ const TABS = [
   },
 ];
 
-const HIDDEN_PATH_PREFIXES = ["/naming", "/results", "/upgrade", "/login"];
+const HIDDEN_PATH_PREFIXES = [
+  "/naming",
+  "/results",
+  "/upgrade",
+  "/login",
+  "/terms",
+  "/privacy",
+];
 
 export default function BottomNav() {
   const pathname = usePathname();

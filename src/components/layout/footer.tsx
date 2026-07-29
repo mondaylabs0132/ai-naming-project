@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // 사업자 등록 정보 푸터 (예시 데이터 — 실제 값으로 교체하세요)
 const BUSINESS_INFO = [
   { label: "상호명", value: "먼데이랩스" },
@@ -32,7 +34,17 @@ export default function Footer() {
         ))}
       </dl>
 
-      <p className="mt-4 text-nav text-ink-light">
+      <div className="mt-4 flex items-center gap-2 text-nav">
+        <Link href="/terms" className="text-ink-muted">
+          이용약관
+        </Link>
+        <span className="text-ink-light">|</span>
+        <Link href="/privacy" className="text-ink-muted">
+          개인정보 처리방침
+        </Link>
+      </div>
+
+      <p className="mt-3 text-nav text-ink-light">
         © 2026 먼데이랩스. All rights reserved.
       </p>
     </footer>
