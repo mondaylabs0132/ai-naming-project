@@ -1,23 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { Cloud, Crown, Heart, Share2 } from "lucide-react";
+import { Crown, Heart, Mail, Share2 } from "lucide-react";
 
+// title의 줄바꿈(\n)은 3분할 카드에서 줄이 갈리는 위치를 고정하기 위한 것.
+// 렌더링 쪽에서 whitespace-pre-line으로 살린다.
 const STATS = [
   {
     badge: "+19",
-    title: "19개 이름 추가 확인",
+    title: "19개 이름\n추가 확인",
     desc: "현재 1개를 포함해 총 20개의 이름을 확인할 수 있어요.",
   },
   {
-    icon: <Cloud size={22} className="text-primary" />,
-    title: "20개 이름 평생 보관",
-    desc: "결제 시 평생 보관 가능! (무료는 24시간 후 사라져요)",
+    icon: <Mail size={22} className="text-primary" />,
+    title: "이름 20개\n메일 발송",
+    desc: "무료 결과는 24시간 뒤 사라지지만 메일은 남아요.",
   },
   {
     icon: <Heart size={22} className="text-primary" />,
-    title: "부부 공유 링크",
-    desc: "결과를 공유하고 마음에 드는 이름을 선택할 수 있어요.",
+    title: "하트로 골라\n모으기",
+    desc: "마음이 가는 이름만 추려 따로 볼 수 있어요.",
   },
 ];
 
@@ -69,7 +71,7 @@ export default function UpgradeCta({ resultId }: { resultId: string }) {
                 {stat.icon}
               </span>
             )}
-            <span className="font-semibold text-ink text-caption leading-tight break-keep">
+            <span className="font-semibold text-ink text-caption leading-tight break-keep whitespace-pre-line">
               {stat.title}
             </span>
             <span
