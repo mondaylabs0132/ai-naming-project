@@ -6,11 +6,11 @@ import { useEffect, useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import {
   Check,
-  Cloud,
   FileText,
   Heart,
   Info,
   Lock,
+  Mail,
   ShieldCheck,
 } from "lucide-react";
 
@@ -224,8 +224,8 @@ export default function CheckoutClient({
             <div className="mt-4 flex flex-nowrap gap-1.5 min-[400px]:gap-2">
               {[
                 { Icon: FileText, label: "이름 20개 확인" },
-                { Icon: Cloud, label: "평생 보관" },
-                { Icon: Heart, label: "부부 공유" },
+                { Icon: Mail, label: "메일 발송" },
+                { Icon: Heart, label: "하트로 보관" },
               ].map(({ Icon, label }) => (
                 <span
                   key={label}
