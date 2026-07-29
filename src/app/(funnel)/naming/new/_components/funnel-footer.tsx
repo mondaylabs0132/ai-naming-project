@@ -42,8 +42,10 @@ export default function FunnelFooter({
   const isBusy = isSubmitting || isRedirecting;
 
   // 실패했을 때만 잠금을 풀어 다시 시도할 수 있게 한다.
+  // isRedirecting까지 되돌려야 이동 시작 직후 실패해도 버튼이 다시 살아난다.
   const failSubmit = (message: string) => {
     isSubmitLockedRef.current = false;
+    setIsRedirecting(false);
     setSubmitError(message);
   };
 
@@ -71,8 +73,16 @@ export default function FunnelFooter({
         return;
       }
 
-      sessionStorage.removeItem(SURVEY_STORAGE_KEY);
-      sessionStorage.removeItem(PREFERENCES_UI_STORAGE_KEY);
+      // 여기서부터는 서버 요청이 이미 성공한 구간이라, 뒷정리가 실패해도
+      // 제출 실패로 되돌리면 안 된다. (되돌리면 사용자가 재시도해 중복 요청이 생김)
+      // sessionStorage는 프라이빗 모드 등에서 접근 자체가 막힐 수 있어 따로 감싼다.
+      try {
+        sessionStorage.removeItem(SURVEY_STORAGE_KEY);
+        sessionStorage.removeItem(PREFERENCES_UI_STORAGE_KEY);
+      } catch {
+        // 임시 저장값이 남아도 결과 화면 이동에는 영향이 없다.
+      }
+
       // 이동이 끝날 때까지 잠금을 유지한다. (성공 경로에서는 풀지 않음)
       setIsRedirecting(true);
       router.push(`/naming/generating?requestId=${result.requestId}`);
