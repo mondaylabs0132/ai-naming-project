@@ -73,7 +73,25 @@ export async function POST(req: NextRequest) {
     return fail(400, "amount_mismatch");
   }
 
-  // 3. 중복 승인 차단: PENDING→PROCESSING 조건부
+  // 4. 결과가 이미 만료 후 정리(purge)됐으면 승인 전에 중단.
+  //    시간이 아니라 deleted_at을 보는 이유: 유예가 지나도 크론이 아직 안 돌았으면
+  //    설문이 남아 있으므로 정상 완주시킨다.
+  const { data: nr } = await admin
+    .from("naming_requests")
+    .select("status,deleted_at")
+    .eq("id", order.request_id)
+    .maybeSingle();
+  if (!nr || nr.deleted_at || nr.status === "DELETED") {
+    await markPaymentFailed(admin, {
+      attempt,
+      order,
+      code: "result_expired",
+      message: "result purged before approval",
+    });
+    return fail(410, "result_expired");
+  }
+
+  // 5. 중복 승인 차단: PENDING→PROCESSING 조건부
   const locked = await lockOrderForProcessing(admin, order.id);
   if (!locked) {
     // 잠금 실패(= 다른 요청이 이미 처리 중).  → 현재 상태 재조회
@@ -90,7 +108,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, pending: true }, { status: 202 });
   }
 
-  // 4. Toss 승인 API
+  // 6. Toss 승인 API
   const result = await confirmPayment({
     paymentKey,
     orderId,
@@ -114,7 +132,7 @@ export async function POST(req: NextRequest) {
       });
       return fail(400, "response_mismatch");
     }
-    // 6. 결제 성공 확정
+    // 7. 결제 성공 확정
     try {
       await finalizePaymentSuccess(admin, orderId, result.payment);
     } catch (e) {
@@ -123,7 +141,7 @@ export async function POST(req: NextRequest) {
       console.error("[checkout/confirm] finalize failed:", e);
       return NextResponse.json({ ok: false, pending: true }, { status: 202 });
     }
-    // 7. 응답
+    // 8. 응답
     return NextResponse.json({ ok: true, requestId: order.request_id });
   }
 
