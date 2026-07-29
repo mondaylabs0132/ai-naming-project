@@ -225,7 +225,7 @@ export default function ResultPageView({
   if (loadError) throw loadError;
 
   return (
-    <div className="pb-[90px] px-5">
+    <div className="px-5">
       {/* ── 커스텀 상단 바 ── */}
       <div className="flex items-center justify-between mb-1">
         <Link href="/">
