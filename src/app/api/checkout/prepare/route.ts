@@ -6,7 +6,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { completeOrder } from "@/lib/payments/complete";
 import { validateAndPriceCoupon } from "@/lib/payments/coupons";
-import { createAttempt, prepareOrder } from "@/lib/payments/orders";
+import {
+  createAttempt,
+  prepareOrder,
+  isPaymentWindowOpen,
+} from "@/lib/payments/orders";
 import {
   customerKeyFor,
   generateIdempotencyKey,
@@ -41,7 +45,7 @@ export async function POST(req: NextRequest) {
   // 2. naming_requests 조회
   const { data: nr } = await admin
     .from("naming_requests")
-    .select("id,user_id,status,deleted_at")
+    .select("id,user_id,status,deleted_at,free_expires_at")
     .eq("id", requestId)
     .maybeSingle();
   if (!nr || nr.status === "DELETED" || nr.deleted_at) {
@@ -69,6 +73,12 @@ export async function POST(req: NextRequest) {
     .eq("request_id", requestId)
     .maybeSingle();
   if (existingOrder?.status === "COMPLETED") return fail(409, "already_paid");
+
+  // 보관 기간이 끝난 결과는 새 결제를 받지 않는다.
+  // 결제 완료 건도 이 기간은 지나 있으므로 반드시 위의 기결제 검사들보다 뒤에 둔다.
+  if (!isPaymentWindowOpen(nr.free_expires_at)) {
+    return fail(410, "payment_window_closed");
+  }
 
   // 4. 쿠폰 검증
   let discount = 0;

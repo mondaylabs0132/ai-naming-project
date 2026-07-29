@@ -6,6 +6,19 @@ import type { TossPayment } from "./toss";
 
 const PRODUCT_PRICE = 19900;
 
+/**
+ * 무료 결과가 만료(free_expires_at)된 뒤에도 결제를 더 받아주는 시간.
+ * 만료 직전에 결제를 시작한 사람이 몇 초 차이로 실패하는 걸 막아준다.
+ */
+export const PAYMENT_GRACE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 아직 결제를 받을 수 있는 기간인지 (만료 + 위 유예 시간이 지나지 않았는지).
+ */
+export const isPaymentWindowOpen = (freeExpiresAt: string | null) =>
+  !!freeExpiresAt &&
+  Date.now() < new Date(freeExpiresAt).getTime() + PAYMENT_GRACE_MS;
+
 export type PremiumOrder = {
   id: string;
   request_id: string;

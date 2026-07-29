@@ -43,6 +43,9 @@ const ERROR_MESSAGE: Record<string, string> = {
   CANCELED: "결제가 취소되었어요.",
   ABORTED: "결제가 중단되었어요.",
   EXPIRED: "결제 시간이 만료되었어요. 다시 시도해주세요.",
+  payment_window_closed: "무료 결과 보관 기간이 지나 결제가 마감되었어요.",
+  result_expired:
+    "결과가 보관 기간이 지나 삭제되었어요. 결제는 진행되지 않았습니다.",
 };
 
 function messageFor(code: string | null, message: string | null) {
