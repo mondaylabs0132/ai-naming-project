@@ -39,7 +39,7 @@ export default function Footer() {
           이용약관
         </Link>
         <span className="text-ink-light">|</span>
-        <Link href="/privacy" className="font-semibold text-ink">
+        <Link href="/privacy" className="text-ink-muted">
           개인정보 처리방침
         </Link>
       </div>

@@ -38,7 +38,9 @@ export default function LegalPage({
 
       <main className="px-5 pb-16 pt-2">
         {effectiveDate && (
-          <p className="mb-6 text-caption text-ink-light">시행일: {effectiveDate}</p>
+          <p className="mb-6 text-caption text-ink-light">
+            시행일: {effectiveDate}
+          </p>
         )}
         <div className="flex flex-col gap-7 text-body leading-[1.7] text-ink-muted">
           {children}
