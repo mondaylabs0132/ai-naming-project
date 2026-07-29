@@ -18,8 +18,8 @@ const hakgyoansimChilpanjiugae = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "이름담다",
-  description: "AI와 전문가의 마음을 담아, 평생 부를 특별한 이름을 지어드려요.",
+  title: "첫지음",
+  description: "태어난 아이의 소중한 첫 번째 선물을 드립니다.",
 };
 
 export default function RootLayout({
@@ -33,7 +33,7 @@ export default function RootLayout({
       className={`${pretendard.variable} ${hakgyoansimChilpanjiugae.variable} antialiased`}
     >
       <body className="bg-gray-300">
-        <div className="max-w-[600px] mx-auto bg-[#F9F7F9] min-h-screen relative">
+        <div className="max-w-150 mx-auto bg-[#F9F7F9] min-h-screen relative">
           <TopNav />
           {children}
           <BottomNav />
