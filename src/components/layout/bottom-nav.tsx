@@ -68,6 +68,7 @@ const TABS = [
   },
 ];
 
+// 탭바를 숨기는 영역 — 퍼널·결제·로딩처럼 한 가지 행동에 집중시켜야 하는 화면들
 const HIDDEN_PATH_PREFIXES = [
   "/naming",
   "/results",
@@ -77,13 +78,20 @@ const HIDDEN_PATH_PREFIXES = [
   "/privacy",
 ];
 
+// 위 영역 안이지만 예외적으로 탭바를 보여주는 화면.
+// 유료 결과는 흐름의 목적지라 이탈 방지보다 이동성이 중요하다.
+// (보관함·마이페이지로 넘어갈 수 있어야 함)
+// 이름 상세(/upgrade/[id]/result/[nameId])는 서브 화면이라 계속 숨긴다.
+const VISIBLE_PATH_PATTERNS = [/^\/upgrade\/[^/]+\/result\/?$/];
+
 export default function BottomNav() {
   const pathname = usePathname();
 
   const isHidden =
-    HIDDEN_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
-    pathname.includes("/result/") ||
-    pathname.endsWith("/detail");
+    !VISIBLE_PATH_PATTERNS.some((pattern) => pattern.test(pathname)) &&
+    (HIDDEN_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+      pathname.includes("/result/") ||
+      pathname.endsWith("/detail"));
   if (isHidden) return null;
 
   return (

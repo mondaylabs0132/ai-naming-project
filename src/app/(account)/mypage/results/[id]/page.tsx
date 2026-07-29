@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import Footer from "@/components/layout/footer";
 import ResultPageView from "@/components/result/ResultPageView";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,5 +30,10 @@ export default async function MyPageResultDetail({
   // 3. 준비된 유료 결과만 재열람 가능
   if (!nr || nr.status !== "PREMIUM_RESULT_READY") notFound();
 
-  return <ResultPageView requestId={id} userId={user.id} />;
+  return (
+    <>
+      <ResultPageView requestId={id} userId={user.id} />
+      <Footer />
+    </>
+  );
 }
