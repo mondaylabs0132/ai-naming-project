@@ -8,7 +8,6 @@ import {
   Heart,
   Mail,
   RotateCw,
-  SlidersHorizontal,
   Star,
   StarHalf,
   TriangleAlert,
@@ -325,13 +324,15 @@ export default function ResultPageView({
             </button>
           ))}
         </div>
-        <button
+        {/* 필터 현재 필요 없으므로 주석처리.
+            되살릴 때 lucide-react의 SlidersHorizontal import도 함께 복구할 것. */}
+        {/* <button
           className="flex items-center gap-1 border border-[var(--color-divider)] px-3 py-[6px] text-[var(--color-ink-muted)]"
           style={{ fontSize: "13px", borderRadius: "var(--radius-pill)" }}
         >
           <SlidersHorizontal size={15} />
           필터
-        </button>
+        </button> */}
       </div>
 
       {/* ── 좋아요 조회 실패 배너 ── */}
