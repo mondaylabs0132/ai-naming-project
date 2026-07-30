@@ -35,6 +35,11 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
       const result = (await response.json()) as { error?: unknown };
 
       if (!response.ok) {
+        if (response.status === 429) {
+          router.replace("/free-limit");
+          return;
+        }
+
         setError({
           message:
             typeof result.error === "string"

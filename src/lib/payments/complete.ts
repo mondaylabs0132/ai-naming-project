@@ -3,6 +3,7 @@ import "server-only";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { setFreeUsageUpgradeEffect } from "@/lib/free-usage/server";
 import { markCouponUsed, ensureReanalysisCoupon } from "./coupons";
 import type { PaymentAttempt, PremiumOrder } from "./orders";
 import type { TossPayment } from "./toss";
@@ -53,6 +54,19 @@ async function triggerGeneration(admin: SupabaseClient, requestId: string) {
     .eq("status", "PREMIUM_GENERATING");
 }
 
+async function getCouponType(admin: SupabaseClient, couponId: string | null) {
+  if (!couponId) return null;
+
+  const { data, error } = await admin
+    .from("coupons")
+    .select("type")
+    .eq("id", couponId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data?.type as "PRE_REGISTER" | "REANALYSIS" | undefined) ?? null;
+}
+
 /**
  * 결제 성공 확정 트랜잭션 + AI 생성 트리거
  * 각 UPDATE가 조건부라 여러 번 호출돼도 1회로 수렴(멱등).
@@ -72,6 +86,7 @@ export async function completeOrder(
   } = {},
 ) {
   const now = new Date().toISOString();
+  const couponType = await getCouponType(admin, order.coupon_id);
 
   // 결제 시도 기록을 COMPLETED로 확정 (attempt가 있을 때만).
   if (opts.attempt) {
@@ -103,6 +118,18 @@ export async function completeOrder(
     await markCouponUsed(admin, order.coupon_id);
   }
 
+  if (order.amount > 0) {
+    await setFreeUsageUpgradeEffect(admin, {
+      requestId: order.request_id,
+      effect: "PAID",
+    });
+  } else if (couponType === "REANALYSIS") {
+    await setFreeUsageUpgradeEffect(admin, {
+      requestId: order.request_id,
+      effect: "REANALYSIS",
+    });
+  }
+
   // 유저를 유료 회원으로 전환.
   {
     const { error } = await admin
@@ -130,10 +157,12 @@ export async function completeOrder(
   //   1) 여기서 매 호출 발급 시도 (confirm·webhook·재시도마다)
   //   2) 헬퍼가 멱등(UNIQUE) → 여러 번 불려도 1장, 실패해도 다음 호출이 재시도
   //   3) 그래도 빠지면 pg_cron 잡(reconcile_reanalysis_coupons)이 매시 최종 보정
-  await ensureReanalysisCoupon(admin, {
-    requestId: order.request_id,
-    userId: order.user_id,
-  });
+  if (order.amount > 0) {
+    await ensureReanalysisCoupon(admin, {
+      requestId: order.request_id,
+      userId: order.user_id,
+    });
+  }
 
   // 응답을 먼저 반환하고 백그라운드로 생성 트리거 (generating 페이지가 status 폴링).
   after(() => triggerGeneration(admin, order.request_id));

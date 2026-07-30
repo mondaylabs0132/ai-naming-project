@@ -4,10 +4,15 @@ import MoodSection from "@/components/home/mood-section";
 import FilterSection from "@/components/home/filter-section";
 import Footer from "@/components/layout/footer";
 
-export default function Home() {
+import { checkFreeUsage } from "@/lib/free-usage/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export default async function Home() {
+  const usage = await checkFreeUsage(createAdminClient());
+
   return (
     <main>
-      <HeroSection />
+      <HeroSection canUseFreeTrial={usage.ok} />
       <NameCarousel />
       <MoodSection />
       <FilterSection />
