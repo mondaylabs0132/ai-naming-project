@@ -10,7 +10,7 @@ export default function HeroSection({
   canUseFreeTrial: boolean;
 }) {
   const router = useRouter();
-  const [isFreeLimitModalOpen, setIsFreeLimitModalOpen] = useState(true);
+  const [isFreeLimitModalOpen, setIsFreeLimitModalOpen] = useState(false);
 
   const handleClick = () => {
     if (!canUseFreeTrial) {
@@ -58,9 +58,7 @@ export default function HeroSection({
                 boxShadow: "0px 4px 20px rgba(124,111,205,0.40)",
               }}
             >
-              {canUseFreeTrial
-                ? "AI 이름 추천 시작하기"
-                : "무료 추천 제한 안내"}
+              AI 이름 추천 시작하기
               <span aria-hidden="true" style={{ fontSize: "1em" }}>
                 →
               </span>
@@ -112,7 +110,7 @@ function FreeLimitModal({
           type="button"
           onClick={onClose}
           aria-label="닫기"
-          className="ml-auto flex size-9 items-center justify-center rounded-full text-[#8B849E]"
+          className="ml-auto flex size-9 items-center justify-end rounded-full text-[#8B849E]"
         >
           <X className="size-5" strokeWidth={2.4} aria-hidden="true" />
         </button>

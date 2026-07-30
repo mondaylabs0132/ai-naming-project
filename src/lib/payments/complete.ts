@@ -118,6 +118,7 @@ export async function completeOrder(
     await markCouponUsed(admin, order.coupon_id);
   }
 
+  // 실결제는 무료 사용권을 회복하고, 재분석 쿠폰은 무료 제한에 계속 포함시킴
   if (order.amount > 0) {
     await setFreeUsageUpgradeEffect(admin, {
       requestId: order.request_id,
