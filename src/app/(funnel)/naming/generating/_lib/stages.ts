@@ -8,6 +8,8 @@
  *     (멈춘 게이지는 고장으로 보이므로 완료 신호는 실제 응답만 준다)
  */
 
+import { asymptoticProgress } from "@/lib/loading/progress";
+
 /** 사용자에게 보여줄 분석 단계 — `at`(초)부터 해당 문구를 노출한다. */
 export const STAGES = [
   { at: 0, label: "사주팔자를 세우고 있어요" },
@@ -39,10 +41,8 @@ export const DONE_LABEL = "분석이 완료됐어요!";
  */
 export const DONE_HOLD_MS = 400;
 
-/** 진행률 상한 — 응답이 오기 전에는 여기까지만 접근한다. */
-const PROGRESS_CEILING = 92;
-/** 곡선의 시간 상수. 작을수록 앞부분이 빠르게 찬다. */
-const PROGRESS_TAU = 22;
+/** 진행률 곡선 계수 — 상한 92%에 점근, tau가 작을수록 앞부분이 빠르게 찬다. */
+const PROGRESS = { ceiling: 92, tau: 22 };
 
 export type StageState = {
   /** 화면에 표시할 문구 */
@@ -80,14 +80,7 @@ export function stageStateAt(elapsedSec: number): StageState {
   };
 }
 
-/**
- * 경과 시간(초) → 진행률(%).
- *
- * `92 * (1 - e^(-t/22))` — 앞부분은 빠르게 차고 뒤로 갈수록 완만해지며
- * 92%에 점근한다. 오래 걸려도 게이지가 굳지 않고 계속 조금씩 움직인다.
- */
+/** 경과 시간(초) → 진행률(%). */
 export function progressAt(elapsedSec: number): number {
-  if (elapsedSec <= 0) return 0;
-  const ratio = 1 - Math.exp(-elapsedSec / PROGRESS_TAU);
-  return Math.round(PROGRESS_CEILING * ratio * 10) / 10;
+  return asymptoticProgress(elapsedSec, PROGRESS);
 }

@@ -3,8 +3,9 @@
 import { notFound, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useElapsedSec } from "@/lib/loading/use-elapsed-sec";
+
 import { DONE_HOLD_MS } from "../_lib/stages";
-import { useElapsedSec } from "../_lib/use-elapsed-sec";
 import GeneratingError from "./generating-error";
 import GeneratingView from "./generating-view";
 
