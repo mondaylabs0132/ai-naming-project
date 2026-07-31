@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Activity,
-  CheckCircle2,
-  RefreshCcw,
-  ShieldCheck,
-  Siren,
-} from "lucide-react";
+import { CheckCircle2, RefreshCcw, Siren } from "lucide-react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -15,10 +9,8 @@ import { useElapsedSec } from "@/lib/loading/use-elapsed-sec";
 import { createClient } from "@/lib/supabase/client";
 
 import {
-  ANALYZING_TAGS,
   DONE_HOLD_MS,
   PREMIUM_STEPS,
-  activeTagIndexAt,
   premiumProgressAt,
   progressLabelAt,
   stepStatusAt,
@@ -268,7 +260,6 @@ function AnalyzingView({
 }) {
   const progress = premiumProgressAt(elapsedSec, isDone);
   const progressLabel = progressLabelAt(elapsedSec, isDone);
-  const activeTagIndex = activeTagIndexAt(elapsedSec);
 
   return (
     <div className="px-5 py-4 text-center">
@@ -503,7 +494,8 @@ function AnalyzingView({
         </p>
       </div>
 
-      <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
+      {/* 아래 정보가 더 부정확하여 주석처리 */}
+      {/* <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-1.5">
           <p className="flex items-center gap-2 font-semibold text-ink">
             <span className="text-primary bg-primary-pale p-1 rounded-xs flex items-center justify-center">
@@ -546,12 +538,12 @@ function AnalyzingView({
             );
           })}
         </div>
-      </div>
+      </div> */}
 
-      <span className="mt-6 flex items-center justify-center gap-1.5 text-[10px] min-[376px]:text-caption leading-[1.6] text-ink-muted">
+      {/* <span className="mt-6 flex items-center justify-center gap-1.5 text-[10px] min-[376px]:text-caption leading-[1.6] text-ink-muted">
         <ShieldCheck size={14} className="text-ink-muted mb-0.5" />
         분석 중 입력하신 정보는 안전하게 보호되며, 제3자에게 제공되지 않습니다.
-      </span>
+      </span> */}
     </div>
   );
 }
