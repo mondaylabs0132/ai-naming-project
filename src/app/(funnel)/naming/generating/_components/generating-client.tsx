@@ -19,7 +19,6 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
   const [isDone, setIsDone] = useState(false);
   const startedRef = useRef(false);
   const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const elapsedSec = useElapsedSec();
 
   // 언마운트 시 이동 타이머 정리
   useEffect(() => {
@@ -94,6 +93,19 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
       />
     );
   }
+
+  return <LiveGeneratingView isDone={isDone} />;
+}
+
+/**
+ * 생성 대기 화면 전용 래퍼 — 경과 시간 계측이 여기서 시작된다.
+ *
+ * 에러 화면은 이 래퍼 밖에서 렌더되므로, 재시도로 래퍼가 다시 마운트될 때
+ * 경과 시간이 0부터 시작한다. 부모에서 계측하면 에러 화면을 보던 시간까지
+ * 누적돼, 재시도 직후부터 "거의 다 됐어요"가 뜨고 게이지가 90%대에서 정지한다.
+ */
+function LiveGeneratingView({ isDone }: { isDone: boolean }) {
+  const elapsedSec = useElapsedSec();
 
   return <GeneratingView elapsedSec={elapsedSec} isDone={isDone} />;
 }
