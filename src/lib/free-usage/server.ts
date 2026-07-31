@@ -39,6 +39,11 @@ async function getVisitorIdAndIpHash(): Promise<FreeUsageIdentity> {
 export async function checkFreeUsage(
   supabase: SupabaseClient,
 ): Promise<FreeUsageResult> {
+  // 개발 환경에서는 무료 사용 제한을 확인하지 않음
+  if (process.env.NODE_ENV === "development") {
+    return { ok: true, code: "OK" };
+  }
+
   const { visitorId, ipHash } = await getVisitorIdAndIpHash();
   const { data, error } = await supabase.rpc("check_free_usage", {
     p_visitor_id: visitorId,
@@ -53,6 +58,11 @@ export async function consumeFreeUsage(
   supabase: SupabaseClient,
   params: { requestId: string },
 ): Promise<FreeUsageResult> {
+  // 개발 환경에서는 무료 사용 횟수를 차감하지 않음
+  if (process.env.NODE_ENV === "development") {
+    return { ok: true, code: "OK" };
+  }
+
   const { visitorId, ipHash } = await getVisitorIdAndIpHash();
   const { data, error } = await supabase.rpc("use_free_usage", {
     p_request_id: params.requestId,
@@ -68,6 +78,11 @@ export async function setFreeUsageUpgradeEffect(
   supabase: SupabaseClient,
   params: { requestId: string; effect: "PAID" | "REANALYSIS" | "ROLLBACK" },
 ) {
+  // 개발 환경에서는 무료 사용 기록이 없으므로 업그레이드 효과를 반영하지 않음
+  if (process.env.NODE_ENV === "development") {
+    return;
+  }
+
   const { error } = await supabase.rpc("set_free_usage_upgrade_effect", {
     p_request_id: params.requestId,
     p_effect: params.effect,
