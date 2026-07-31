@@ -72,6 +72,20 @@ export async function setFreeUsageUpgradeEffect(
   if (error) throw error;
 }
 
+export async function rollbackFreeUsage(
+  supabase: SupabaseClient,
+  params: { requestId: string },
+) {
+  try {
+    await setFreeUsageUpgradeEffect(supabase, {
+      requestId: params.requestId,
+      effect: "ROLLBACK",
+    });
+  } catch (rollbackError) {
+    console.error("[free] 무료 사용 횟수 복구 실패:", rollbackError);
+  }
+}
+
 function normalizeFreeUsageRpcResult(data: unknown): FreeUsageResult {
   const row = Array.isArray(data) ? data[0] : data;
 

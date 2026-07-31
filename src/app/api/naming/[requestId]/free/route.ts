@@ -2,7 +2,10 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { consumeFreeUsage } from "@/lib/free-usage/server";
+import {
+  consumeFreeUsage,
+  rollbackFreeUsage,
+} from "@/lib/free-usage/server";
 import {
   ohangFromSurvey,
   fetchSurveyAndSurname,
@@ -17,10 +20,11 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ requestId: string }> },
 ) {
-  try {
-    const { requestId } = await params;
-    const supabase = createAdminClient();
+  const { requestId } = await params;
+  const supabase = createAdminClient();
+  let shouldRollbackFreeUsage = false;
 
+  try {
     // ── 캐시 확인 ─────────────────────────────────────────────
     const { data: cached } = await supabase
       .from("name_candidates")
@@ -77,6 +81,8 @@ export async function POST(
       );
     }
 
+    shouldRollbackFreeUsage = true;
+
     // ── 이름 생성 ─────────────────────────────────────────────
     const usedNames = new Set<string>();
     const pool = await collectNames({
@@ -91,6 +97,9 @@ export async function POST(
     });
 
     if (pool.length === 0) {
+      shouldRollbackFreeUsage = false;
+      await rollbackFreeUsage(supabase, { requestId });
+
       return NextResponse.json(
         { error: "이름 생성에 실패했습니다." },
         { status: 500 },
@@ -137,8 +146,13 @@ export async function POST(
 
     if (insertErr) {
       console.error("[free] name_candidates 삽입 실패:", insertErr.message);
+      shouldRollbackFreeUsage = false;
+      await rollbackFreeUsage(supabase, { requestId });
+
       return NextResponse.json({ error: "DB 저장 실패" }, { status: 500 });
     }
+
+    shouldRollbackFreeUsage = false;
 
     return NextResponse.json({
       requestId,
@@ -147,6 +161,10 @@ export async function POST(
       freeName: toApiShape(freeName, detailMap[freeName.hangul], lacking, 0),
     });
   } catch (e) {
+    if (shouldRollbackFreeUsage) {
+      await rollbackFreeUsage(supabase, { requestId });
+    }
+
     console.error("[/api/naming/[requestId]/free]", e);
     return NextResponse.json(
       { error: "서버 오류가 발생했습니다." },
