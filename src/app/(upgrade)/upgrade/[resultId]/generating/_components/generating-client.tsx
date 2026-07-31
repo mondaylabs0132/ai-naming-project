@@ -1,52 +1,23 @@
 "use client";
 
-import {
-  Activity,
-  CheckCircle2,
-  RefreshCcw,
-  ShieldCheck,
-  Siren,
-} from "lucide-react";
+import { CheckCircle2, RefreshCcw, Siren } from "lucide-react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
+import { useElapsedSec } from "@/lib/loading/use-elapsed-sec";
 import { createClient } from "@/lib/supabase/client";
 
-const PROGRESS_PERCENT = 68;
+import {
+  DONE_HOLD_MS,
+  PREMIUM_STEPS,
+  premiumProgressAt,
+  progressLabelAt,
+  stepStatusAt,
+} from "../_lib/premium-stages";
+
 const POLL_INTERVAL = 2000;
 const SUPPORT_EMAIL = "support@naming.app";
-
-const STEPS = [
-  {
-    title: "기본 정보 분석",
-    desc: "사주, 오행, 음양오행, 수리격 분석 완료",
-    status: "done" as const,
-  },
-  {
-    title: "이름 후보 분석 중",
-    desc: "의미, 발음, 한자, 활용도, 선호도 분석 중",
-    status: "active" as const,
-  },
-  {
-    title: "전문가 최종 검토",
-    desc: "전문가가 최종적으로 검토하고 순위를 매기는 중",
-    status: "pending" as const,
-  },
-  {
-    title: "결과 정리 및 제공",
-    desc: "20개의 이름 결과를 정리하여 보여드릴게요",
-    status: "pending" as const,
-  },
-];
-
-const ANALYZING_TAGS = [
-  { label: "이름 의미 해석", active: true },
-  { label: "음양 조화 분석", active: false },
-  { label: "발음 조화 분석", active: false },
-  { label: "한자 후보 탐색", active: false },
-  { label: "선호도 데이터 반영", active: false },
-];
 
 // 화면 진행 단계: confirming(결제 승인 확인) · generating(생성 완료 대기 폴링) · pending(결제 미확정 폴링) · failed(생성 실패)
 type Phase = "confirming" | "generating" | "pending" | "failed";
@@ -77,7 +48,16 @@ function GeneratingInner() {
   const [phase, setPhase] = useState<Phase>(
     paymentKey && orderId && amount ? "confirming" : "generating",
   );
+  // 생성 완료 → 게이지를 100%까지 채운 뒤 결과 페이지로 이동하는 짧은 구간
+  const [isDone, setIsDone] = useState(false);
   const confirmedRef = useRef(false);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
+    };
+  }, []);
 
   // ── confirm - 1회만
   useEffect(() => {
@@ -132,7 +112,12 @@ function GeneratingInner() {
       if (!alive) return;
       const status = data?.status;
       if (status === "PREMIUM_RESULT_READY") {
-        router.replace(`/upgrade/${resultId}/result`);
+        // 게이지를 100%까지 채운 뒤 이동. 폴링은 아래 cleanup에서 멈춘다.
+        alive = false;
+        setIsDone(true);
+        doneTimerRef.current = setTimeout(() => {
+          router.replace(`/upgrade/${resultId}/result`);
+        }, DONE_HOLD_MS);
       } else if (status === "FAILED") {
         setPhase("failed");
       }
@@ -189,7 +174,25 @@ function GeneratingInner() {
     return <GenerationFailedView resultId={resultId} onRetry={handleRetry} />;
   }
 
+  // AI 생성 대기 구간에서만 경과 시간을 계측한다.
+  if (phase === "generating") {
+    return <LiveAnalyzingView isDone={isDone} />;
+  }
+
+  // confirming·pending은 결제 확인 단계 — 아직 생성이 시작되지 않았으므로 0초 상태.
   return <AnalyzingView pending={phase === "pending"} />;
+}
+
+/**
+ * `generating` 단계에서만 마운트되는 래퍼 — 경과 시간 계측이 여기서 시작된다.
+ * 결제 확인(confirming·pending) 구간을 계측에 포함하면 진행 단계가 앞서가버린다.
+ */
+function LiveAnalyzingView({ isDone }: { isDone: boolean }) {
+  const elapsedSec = useElapsedSec();
+
+  return (
+    <AnalyzingView pending={false} elapsedSec={elapsedSec} isDone={isDone} />
+  );
 }
 
 /** 생성 실패 화면 — 결제 성공 후 AI 생성만 실패한 상태. */
@@ -244,7 +247,20 @@ function GenerationFailedView({
 }
 
 /** 결제 확정 후 생성 대기(분석 중) 화면. pending이면 "결제 확인 중" 배너를 얹는다. */
-function AnalyzingView({ pending }: { pending: boolean }) {
+function AnalyzingView({
+  pending,
+  elapsedSec = 0,
+  isDone = false,
+}: {
+  pending: boolean;
+  /** AI 생성 시작부터의 경과 시간(초). 결제 확인 구간에서는 0 */
+  elapsedSec?: number;
+  /** 생성 완료 — 게이지를 100%까지 채우고 결과 페이지로 이동하기 직전 */
+  isDone?: boolean;
+}) {
+  const progress = premiumProgressAt(elapsedSec, isDone);
+  const progressLabel = progressLabelAt(elapsedSec, isDone);
+
   return (
     <div className="px-5 py-4 text-center">
       <Image
@@ -359,22 +375,40 @@ function AnalyzingView({ pending }: { pending: boolean }) {
         />
       </div>
 
-      <p className="text-[14px] font-semibold text-ink">분석 진행 중...</p>
+      <div className="min-h-6" aria-live="polite" aria-atomic="true">
+        <p
+          key={progressLabel}
+          className="animate-stage-in text-[14px] font-semibold text-ink"
+        >
+          {progressLabel}
+        </p>
+      </div>
 
       <div className="mt-3 flex items-center gap-3">
-        <div className="flex-1 h-2 overflow-hidden rounded-full bg-primary-pale">
+        <div
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.floor(progress)}
+          aria-label="이름 분석 진행률"
+          className="flex-1 h-2 overflow-hidden rounded-full bg-primary-pale"
+        >
+          {/* 완료 시 transition(300ms)은 DONE_HOLD_MS(400ms)보다 짧아야
+              이동 전에 게이지가 실제로 100%까지 차는 게 보인다. */}
           <div
-            className="h-full rounded-full"
+            className={`h-full rounded-full transition-[width] ${
+              isDone ? "duration-300 ease-out" : "duration-200 ease-linear"
+            }`}
             style={{
-              width: `${PROGRESS_PERCENT}%`,
+              width: `${progress}%`,
               background:
                 "linear-gradient(to right, var(--color-ink), var(--color-primary))",
             }}
           />
         </div>
 
-        <span className="text-body font-bold text-primary">
-          {PROGRESS_PERCENT}%
+        <span className="text-body font-bold text-primary tabular-nums">
+          {Math.floor(progress)}%
         </span>
       </div>
 
@@ -386,60 +420,64 @@ function AnalyzingView({ pending }: { pending: boolean }) {
       </p>
 
       <div className="mt-6 rounded-lg bg-surface p-5 text-left shadow-card">
-        {STEPS.map((step, i) => (
-          <div key={step.title} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              {step.status === "done" && (
-                <div
-                  className="flex items-center justify-center rounded-full bg-primary text-surface"
-                  style={{ width: "24px", height: "24px" }}
-                >
-                  <CheckCircle2 size={14} />
-                </div>
-              )}
+        {PREMIUM_STEPS.map((step, i) => {
+          const status = stepStatusAt(i, elapsedSec, isDone);
 
-              {step.status === "active" && (
-                <div
-                  className="flex items-center justify-center rounded-full border-2 border-primary"
-                  style={{ width: "24px", height: "24px" }}
-                >
+          return (
+            <div key={step.title} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                {status === "done" && (
                   <div
-                    className="rounded-full bg-primary"
-                    style={{ width: "10px", height: "10px" }}
+                    className="flex items-center justify-center rounded-full bg-primary text-surface"
+                    style={{ width: "24px", height: "24px" }}
+                  >
+                    <CheckCircle2 size={14} />
+                  </div>
+                )}
+
+                {status === "active" && (
+                  <div
+                    className="flex items-center justify-center rounded-full border-2 border-primary"
+                    style={{ width: "24px", height: "24px" }}
+                  >
+                    <div
+                      className="animate-pulse rounded-full bg-primary"
+                      style={{ width: "10px", height: "10px" }}
+                    />
+                  </div>
+                )}
+
+                {status === "pending" && (
+                  <div
+                    className="rounded-full border-2 border-divider"
+                    style={{ width: "24px", height: "24px" }}
                   />
-                </div>
-              )}
+                )}
 
-              {step.status === "pending" && (
-                <div
-                  className="rounded-full border-2 border-divider"
-                  style={{ width: "24px", height: "24px" }}
-                />
-              )}
+                {i < PREMIUM_STEPS.length - 1 && (
+                  <div
+                    className="flex-1 border-l-2 border-dashed border-primary-muted"
+                    style={{ width: 0, marginTop: "4px", marginBottom: "4px" }}
+                  />
+                )}
+              </div>
 
-              {i < STEPS.length - 1 && (
-                <div
-                  className="flex-1 border-l-2 border-dashed border-primary-muted"
-                  style={{ width: 0, marginTop: "4px", marginBottom: "4px" }}
-                />
-              )}
+              <div className={i < PREMIUM_STEPS.length - 1 ? "pb-5" : ""}>
+                <p
+                  className={`text-[14px] font-semibold ${
+                    status === "active" ? "text-primary" : "text-ink"
+                  }`}
+                >
+                  {step.title}
+                </p>
+
+                <p className="mt-0.5 text-caption leading-normal text-ink-muted">
+                  {step.desc}
+                </p>
+              </div>
             </div>
-
-            <div className={i < STEPS.length - 1 ? "pb-5" : ""}>
-              <p
-                className={`text-[14px] font-semibold ${
-                  step.status === "active" ? "text-primary" : "text-ink"
-                }`}
-              >
-                {step.title}
-              </p>
-
-              <p className="mt-0.5 text-caption leading-normal text-ink-muted">
-                {step.desc}
-              </p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="mt-4 rounded-lg bg-primary-pale p-5 text-left">
@@ -452,11 +490,12 @@ function AnalyzingView({ pending }: { pending: boolean }) {
           정확하고 의미 있는 이름을 찾기 위해 다양한 요소를 종합적으로 분석하고
           있어요.
           <br />
-          보통 1분 내외로 결과를 받아보실 수 있어요.
+          보통 1 ~ 2분 내외로 결과를 받아보실 수 있어요.
         </p>
       </div>
 
-      <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
+      {/* 아래 정보가 더 부정확하여 주석처리 */}
+      {/* <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-1.5">
           <p className="flex items-center gap-2 font-semibold text-ink">
             <span className="text-primary bg-primary-pale p-1 rounded-xs flex items-center justify-center">
@@ -472,35 +511,39 @@ function AnalyzingView({ pending }: { pending: boolean }) {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-caption">
-          {ANALYZING_TAGS.map((tag, i) => (
-            <span key={tag.label} className="flex items-center gap-2">
-              {i > 0 && <span className="text-ink-light">·</span>}
+          {ANALYZING_TAGS.map((tag, i) => {
+            const isActive = i === activeTagIndex;
 
-              <span
-                className={`flex items-center gap-1 ${
-                  tag.active
-                    ? "font-semibold text-primary"
-                    : "font-normal text-ink-muted"
-                }`}
-              >
-                {tag.active && (
-                  <span
-                    className="rounded-full bg-primary"
-                    style={{ width: "6px", height: "6px" }}
-                  />
-                )}
+            return (
+              <span key={tag} className="flex items-center gap-2">
+                {i > 0 && <span className="text-ink-light">·</span>}
 
-                {tag.label}
+                <span
+                  className={`flex items-center gap-1 transition-colors ${
+                    isActive
+                      ? "font-semibold text-primary"
+                      : "font-normal text-ink-muted"
+                  }`}
+                >
+                  {isActive && (
+                    <span
+                      className="animate-pulse rounded-full bg-primary"
+                      style={{ width: "6px", height: "6px" }}
+                    />
+                  )}
+
+                  {tag}
+                </span>
               </span>
-            </span>
-          ))}
+            );
+          })}
         </div>
-      </div>
+      </div> */}
 
-      <span className="mt-6 flex items-center justify-center gap-1.5 text-[10px] min-[376px]:text-caption leading-[1.6] text-ink-muted">
+      {/* <span className="mt-6 flex items-center justify-center gap-1.5 text-[10px] min-[376px]:text-caption leading-[1.6] text-ink-muted">
         <ShieldCheck size={14} className="text-ink-muted mb-0.5" />
         분석 중 입력하신 정보는 안전하게 보호되며, 제3자에게 제공되지 않습니다.
-      </span>
+      </span> */}
     </div>
   );
 }

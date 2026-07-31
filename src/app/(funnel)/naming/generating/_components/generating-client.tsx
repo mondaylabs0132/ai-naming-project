@@ -1,17 +1,13 @@
 "use client";
 
-import { Siren } from "lucide-react";
-import Image from "next/image";
 import { notFound, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import GeneratingError from "./generating-error";
+import { useElapsedSec } from "@/lib/loading/use-elapsed-sec";
 
-const TIPS = [
-  "분석 시간은 평균 40~60초 정도 소요돼요.",
-  "더 정확한 결과를 위해 데이터를 꼼꼼히 분석하고 있어요.",
-  "잠시만 기다려주시면, 아이에게 꼭 맞는 이름을 추천해드릴게요.",
-];
+import { DONE_HOLD_MS } from "../_lib/stages";
+import GeneratingError from "./generating-error";
+import GeneratingView from "./generating-view";
 
 export default function GeneratingClient({ requestId }: { requestId: string }) {
   const router = useRouter();
@@ -20,7 +16,16 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
     status: number;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDone, setIsDone] = useState(false);
   const startedRef = useRef(false);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 언마운트 시 이동 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
+    };
+  }, []);
 
   const generate = useCallback(async () => {
     if (isSubmitting) return;
@@ -50,8 +55,12 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
         return;
       }
 
-      // 무료 결과 생성 완료 → 무료 결과 페이지로 이동
-      router.replace(`/results/${requestId}`);
+      // 무료 결과 생성 완료 → 게이지를 100%까지 채운 뒤 무료 결과 페이지로 이동.
+      // (finally의 setIsSubmitting보다 먼저 실행되지만, isDone 화면에서는 무관)
+      setIsDone(true);
+      doneTimerRef.current = setTimeout(() => {
+        router.replace(`/results/${requestId}`);
+      }, DONE_HOLD_MS);
     } catch {
       // 네트워크 오류 등 응답 없음 → status 0
       setError({
@@ -85,158 +94,18 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
     );
   }
 
-  return (
-    <div className="px-5 py-6 text-center">
-      <div className="flex items-center justify-center gap-1">
-        <p className="text-caption font-semibold text-primary">
-          정확하고 깊이 있는 분석을 위해
-        </p>
-        <Image
-          src="/assets/sparkle_two.png"
-          alt="sparkle_two"
-          width={461}
-          height={514}
-          className="w-3 h-auto pb-1 object-contain"
-        />
-      </div>
-      <h1 className="mt-2 text-page-title font-extrabold text-ink leading-[1.35] tracking-[-0.4px]">
-        AI가 이름을{" "}
-        <span className="relative inline-block text-primary">
-          분석하고 있어요
-          <svg
-            className="absolute left-0 -bottom-1 w-full text-primary-muted"
-            height="8"
-            viewBox="0 0 100 10"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M2 7 Q50 2 98 7"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-          </svg>
-        </span>
-      </h1>
-      <p className="mt-3 text-ink-muted leading-[1.7]">
-        입력하신 정보를 바탕으로
-        <br />
-        사주, 오행, 음양, 수리, 음운, 의미까지 종합 분석 중이에요.
-      </p>
+  return <LiveGeneratingView isDone={isDone} />;
+}
 
-      {/* 일러스트 영역 — 배경(별 캐릭터)은 고정, 카드 에셋만 부유 */}
-      <div className="relative my-8">
-        <Image
-          src="/assets/funnel-generating-bg.png"
-          alt="AI가 노트북으로 이름을 분석하는 일러스트"
-          width={1409}
-          height={1117}
-          sizes="100vw"
-          className="block h-auto w-full object-contain"
-        />
-        {/* 이미지 하단 경계를 페이지 배경색으로 부드럽게 연결 */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[10px] bg-linear-to-b from-transparent to-bg" />
-        {/* 왼쪽 도넛 그래프 카드 */}
-        <Image
-          src="/assets/funnel-generating-asset1.png"
-          alt=""
-          aria-hidden="true"
-          width={1536}
-          height={1024}
-          className="animate-float-soft absolute h-auto"
-          style={
-            {
-              left: "-3.76%",
-              top: "9.25%",
-              width: "47.89%",
-              "--float-y": "-20px",
-              "--float-r": "-1.5deg",
-              animationDelay: "0s",
-            } as React.CSSProperties
-          }
-        />
-        {/* 오른쪽 위 AI 배지 */}
-        <Image
-          src="/assets/funnel-generating-asset2.png"
-          alt=""
-          aria-hidden="true"
-          width={1536}
-          height={1024}
-          className="animate-float-soft absolute h-auto"
-          style={
-            {
-              left: "60.73%",
-              top: "4.28%",
-              width: "29.38%",
-              "--float-y": "-12px",
-              "--float-r": "1.5deg",
-              animationDelay: "-0.3s",
-            } as React.CSSProperties
-          }
-        />
-        {/* 오른쪽 막대 그래프 카드 */}
-        <Image
-          src="/assets/funnel-generating-asset3.png"
-          alt=""
-          aria-hidden="true"
-          width={1536}
-          height={1024}
-          className="animate-float-soft absolute h-auto"
-          style={
-            {
-              left: "61.66%",
-              top: "32.55%",
-              width: "47.4%",
-              "--float-y": "-18px",
-              "--float-r": "-2.2deg",
-              animationDelay: "-0.6s",
-            } as React.CSSProperties
-          }
-        />
-      </div>
+/**
+ * 생성 대기 화면 전용 래퍼 — 경과 시간 계측이 여기서 시작된다.
+ *
+ * 에러 화면은 이 래퍼 밖에서 렌더되므로, 재시도로 래퍼가 다시 마운트될 때
+ * 경과 시간이 0부터 시작한다. 부모에서 계측하면 에러 화면을 보던 시간까지
+ * 누적돼, 재시도 직후부터 "거의 다 됐어요"가 뜨고 게이지가 90%대에서 정지한다.
+ */
+function LiveGeneratingView({ isDone }: { isDone: boolean }) {
+  const elapsedSec = useElapsedSec();
 
-      <div className="flex items-center justify-center gap-1">
-        <p className="font-semibold text-ink">정성껏 분석하고 있어요</p>
-        <Image
-          src="/assets/sparkle.png"
-          alt="sparkle"
-          width={1024}
-          height={1024}
-          className="w-8 h-auto object-contain"
-        />
-      </div>
-
-      {/* 안내 카드 */}
-      <div className="mt-2 bg-primary-pale rounded-lg shadow-card p-5 text-left">
-        <p className="font-bold text-primary flex items-center gap-2 pl-0.5">
-          <Siren className="w-5 h-5" />
-          알려드려요
-        </p>
-        <ul className="mt-3 space-y-2">
-          {TIPS.map((tip) => (
-            <li key={tip} className="flex items-center gap-1">
-              <Image
-                src="/assets/check.png"
-                alt="check"
-                width={1024}
-                height={1024}
-                className="w-5 h-auto mt-0.5 shrink-0 object-contain self-start"
-              />
-              <span className="text-[clamp(12px,4vw,15px)] text-ink">
-                {tip}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <p className="mt-6 text-[clamp(14px,3.6vw,15px)] font-semibold text-ink leading-[1.7]">
-        분석 결과는 입력하신 정보 외에는 저장되지 않아요.
-        <br />
-        안심하고 기다려주세요 💜
-      </p>
-    </div>
-  );
+  return <GeneratingView elapsedSec={elapsedSec} isDone={isDone} />;
 }
