@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import Footer from "@/components/layout/footer";
 import ResultPageView from "@/components/result/ResultPageView";
 import { createClient } from "@/lib/supabase/server";
 
@@ -41,5 +42,10 @@ export default async function PremiumResultPage({
     redirect(`/upgrade/${resultId}/checkout`);
   }
 
-  return <ResultPageView requestId={resultId} userId={user.id} />;
+  return (
+    <>
+      <ResultPageView requestId={resultId} userId={user.id} />
+      <Footer />
+    </>
+  );
 }

@@ -6,13 +6,11 @@ import {
   ChevronRight,
   Gift,
   Heart,
+  Mail,
   RotateCw,
-  ShieldCheck,
-  SlidersHorizontal,
   Star,
   StarHalf,
   TriangleAlert,
-  Users,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -50,16 +48,16 @@ const STATS = [
     desc: "전문가 + AI 정밀 분석",
   },
   {
-    icon: <ShieldCheck className="size-3.5 min-[376px]:size-4" />,
-    label: "보관 기간",
-    value: "평생",
-    desc: "언제든 다시 확인 가능",
+    icon: <Mail className="size-3.5 min-[376px]:size-4" />,
+    label: "결과 보관",
+    value: "메일 발송",
+    desc: "메일함에 그대로 남아요",
   },
   {
-    icon: <Users className="size-3.5 min-[376px]:size-4" />,
-    label: "공유 가능",
-    value: "부부와 공유",
-    desc: "함께 선택하고 결정",
+    icon: <Heart className="size-3.5 min-[376px]:size-4" />,
+    label: "마음에 든 이름",
+    value: "하트로 저장",
+    desc: "골라서 모아보기",
   },
 ];
 
@@ -226,7 +224,7 @@ export default function ResultPageView({
   if (loadError) throw loadError;
 
   return (
-    <div className="pb-[90px] px-5">
+    <div className="px-5">
       {/* ── 커스텀 상단 바 ── */}
       <div className="flex items-center justify-between mb-1">
         <Link href="/">
@@ -238,13 +236,8 @@ export default function ResultPageView({
             style={{ width: "80px", height: "auto" }}
           />
         </Link>
-        <button
-          className="flex items-center gap-[5px] font-medium border border-[var(--color-primary)] text-[var(--color-primary)] px-3 py-[6px]"
-          style={{ fontSize: "12px", borderRadius: "var(--radius-pill)" }}
-        >
-          <Users size={13} />
-          부부와 공유
-        </button>
+        {/* 부부 공유 기능을 접고 좋아요 보관함 방향으로 정리하면서 제거.
+            보관함 화면이 준비되면 이 자리에 보관함 진입 버튼을 붙인다. */}
       </div>
 
       {/* ── 히어로 카드 ── */}
@@ -331,13 +324,15 @@ export default function ResultPageView({
             </button>
           ))}
         </div>
-        <button
+        {/* 필터 현재 필요 없으므로 주석처리.
+            되살릴 때 lucide-react의 SlidersHorizontal import도 함께 복구할 것. */}
+        {/* <button
           className="flex items-center gap-1 border border-[var(--color-divider)] px-3 py-[6px] text-[var(--color-ink-muted)]"
           style={{ fontSize: "13px", borderRadius: "var(--radius-pill)" }}
         >
           <SlidersHorizontal size={15} />
           필터
-        </button>
+        </button> */}
       </div>
 
       {/* ── 좋아요 조회 실패 배너 ── */}
