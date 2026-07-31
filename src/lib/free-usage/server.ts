@@ -14,7 +14,11 @@ async function getVisitorIdAndIpHash(): Promise<FreeUsageIdentity> {
   const cookieStore = await cookies();
   const headerStore = await headers();
   const cookieVisitorId = cookieStore.get(VISITOR_ID_COOKIE)?.value;
-  const rawIp = headerStore.get("x-forwarded-for")?.trim().toLowerCase();
+  const rawIp = headerStore
+    .get("x-forwarded-for")
+    ?.split(",")[0]
+    ?.trim()
+    .toLowerCase();
   const pepper = process.env.FREE_TRIAL_IP_PEPPER!;
 
   if (!isUuid(cookieVisitorId)) {
