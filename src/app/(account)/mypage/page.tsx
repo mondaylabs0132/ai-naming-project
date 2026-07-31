@@ -16,12 +16,12 @@ import {
   RefreshCw,
   Shield,
   Star,
-  Trash2,
 } from "lucide-react";
 import SectionHeader from "./_components/SectionHeader";
 import SectionCard from "./_components/SectionCard";
 import MiniCard from "./_components/MiniCard";
 import ListRow from "./_components/ListRow";
+import AccountDeletionButton from "./_components/AccountDeletionButton";
 import { createClient } from "@/lib/supabase/client";
 import {
   getMyPageSummary,
@@ -309,18 +309,7 @@ export default function MyPage() {
       <div className="mx-5 mb-3">
         <SectionCard>
           <SectionHeader badge="6" label="계정 관리" />
-          <div className="flex items-center gap-2.5 min-[376px]:gap-3 px-3 min-[376px]:px-4 py-[14px] border border-divider rounded-lg">
-            <Trash2 size={20} className="text-danger shrink-0" />
-            <div className="flex-1 min-w-0 flex flex-col">
-              <span className="font-semibold text-danger text-caption min-[376px]:text-body">
-                계정 삭제
-              </span>
-              <span className="text-ink-muted break-keep text-nav min-[376px]:text-tag">
-                계정을 삭제하면 모든 데이터가 복구되지 않습니다.
-              </span>
-            </div>
-            <ChevronRight size={16} className="text-danger shrink-0" />
-          </div>
+          <AccountDeletionButton />
         </SectionCard>
       </div>
     </div>
