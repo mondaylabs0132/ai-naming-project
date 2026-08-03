@@ -440,6 +440,30 @@ ${nameList}
   return { map, cost: totalCost };
 }
 
+// Free 전용 경량 AI 호출 — summary + tags만 생성
+export async function generateBriefDetail(
+  name: { hangul: string; hanja1: string; hanja2: string; meaning1: string; meaning2: string; reason: string },
+  model = 'gpt-4o',
+): Promise<{ summary: string; tags: string[]; cost: number }> {
+  const prompt = `이름 ${name.hangul} (${name.hanja1}${name.hanja2}): ${name.hanja1}(${name.meaning1}) + ${name.hanja2}(${name.meaning2}) - ${name.reason}
+
+아래 두 가지만 JSON으로 작성하세요.
+- summary: 20자 내외 한 줄 요약 (따뜻하고 자연스럽게, 순한글)
+- tags: #태그 4개 배열
+
+{"summary":"따뜻한 햇살처럼 밝고 온화한 아이","tags":["#태그1","#태그2","#태그3","#태그4"]}`;
+
+  const { text, cost } = await callAI(model, '', prompt, 256);
+  try {
+    const r = JSON.parse(text.replace(/```json|```/g, '').trim()) as { summary: string; tags: string[] };
+    const isValidTag = (t: string) => /^#[가-힣a-zA-Z0-9]{1,8}$/.test(t);
+    const tags = (r.tags ?? []).map((t) => { const s = t.trim(); return s.startsWith('#') ? s : `#${s}`; }).filter(isValidTag);
+    return { summary: r.summary ?? name.reason, tags, cost };
+  } catch {
+    return { summary: name.reason, tags: [], cost };
+  }
+}
+
 // ==========================================================
 // DB Helpers
 // ==========================================================
@@ -628,6 +652,43 @@ export function toDbRow(params: {
     detailed_explanation: buildDetailedExplanation(name, detail),
     tags:                 detail?.tags ?? [],
     categories:           detail?.categories ?? [],
+    grids:                name.grids,
+    total_strokes:        name.grids.총격.rawStroke,
+    score:                name.score,
+    ohang1:               name.ohang1 ?? null,
+    ohang2:               name.ohang2 ?? null,
+    sound_score:          name.soundScore,
+    sound_ohang_list:     name.soundOhangList,
+    sound_details:        name.soundDetails,
+  };
+}
+
+// Free 단계 부분 저장 — detail/categories는 빈 값으로 저장, premium 때 UPDATE
+export function toDbRowBrief(params: {
+  requestId: string; sortOrder: number;
+  surname: SurnameRow; name: RichName;
+  summary: string; tags: string[]; lacking: string[];
+}) {
+  const { requestId, sortOrder, surname, name, summary, tags, lacking } = params;
+  return {
+    request_id:           requestId,
+    sort_order:           sortOrder,
+    is_free_visible:      true,
+    name_hangul:          `${surname.hangul}${name.hangul}`,
+    name_hanja:           `${surname.hanja}${name.hanja}`,
+    surname_hangul:       surname.hangul,
+    surname_hanja:        surname.hanja,
+    given_name_hangul:    name.hangul,
+    given_name_hanja:     name.hanja,
+    hanja1:               name.hanja1,    hanja2:    name.hanja2,
+    hangul1:              name.hangul1,   hangul2:   name.hangul2,
+    meaning1:             name.meaning1,  meaning2:  name.meaning2,
+    meaning_summary:      summary,
+    saju_summary:         buildSajuSummary(name, lacking),
+    numerology_summary:   buildNumerologySummary(name),
+    detailed_explanation: '',
+    tags,
+    categories:           [],
     grids:                name.grids,
     total_strokes:        name.grids.총격.rawStroke,
     score:                name.score,

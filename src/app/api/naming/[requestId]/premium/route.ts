@@ -11,6 +11,7 @@ import {
   toDbRow,
   toApiShape,
   toApiShapeFromDb,
+  type RichName,
 } from "../_lib";
 
 // 유료 생성 API 요청이 서버 내부 호출인지 검증할 때 읽는 커스텀 헤더 이름.
@@ -74,15 +75,16 @@ export async function POST(
         .eq("id", requestId)
         .in("status", ["PREMIUM_GENERATING", "FAILED"]);
 
-    // ── 캐시 확인 ─────────────────────────────────────────────
+    // ── 캐시 확인 (sort_order >= 0, 무료 이름 포함) ──────────────
     const { data: cachedRows } = await supabase
       .from("name_candidates")
       .select("*")
       .eq("request_id", requestId)
-      .gt("sort_order", 0)
+      .gte("sort_order", 0)
       .order("sort_order");
 
-    if (cachedRows && cachedRows.length > 0) {
+    // sort_order > 0 인 유료 이름이 이미 저장돼 있으면 캐시 반환
+    if (cachedRows && cachedRows.some((r) => (r as Record<string, unknown>).sort_order as number > 0)) {
       const { data: surveyRow } = await supabase
         .from("naming_surveys")
         .select("birth_year,birth_month,birth_day,birth_time")
@@ -118,21 +120,40 @@ export async function POST(
     const { survey, surname } = loaded;
     const { lacking, count: ohangCount } = ohangFromSurvey(survey);
 
-    // 무료 이름 hangul 제외 대상으로 추가
+    // ── 무료 이름 DB에서 로드 (usedNames 제외 + detail 생성용) ──
     const { data: freeRow } = await supabase
       .from("name_candidates")
-      .select("given_name_hangul")
+      .select("*")
       .eq("request_id", requestId)
       .eq("sort_order", 0)
       .single();
 
-    const usedNames = new Set<string>(
-      freeRow
-        ? [(freeRow as { given_name_hangul: string }).given_name_hangul]
-        : [],
-    );
+    const freeHangul = freeRow ? (freeRow as Record<string, unknown>).given_name_hangul as string : null;
+    const usedNames = new Set<string>(freeHangul ? [freeHangul] : []);
 
-    // ── 이름 생성 ─────────────────────────────────────────────
+    // freeRow 데이터로 RichName 재구성 (detail 생성에 필요)
+    const freeRichName: RichName | null = freeRow
+      ? {
+          hangul:       (freeRow as Record<string, unknown>).given_name_hangul as string,
+          hanja:        (freeRow as Record<string, unknown>).given_name_hanja  as string,
+          hanja1:       (freeRow as Record<string, unknown>).hanja1            as string,
+          hanja2:       (freeRow as Record<string, unknown>).hanja2            as string,
+          hangul1:      (freeRow as Record<string, unknown>).hangul1           as string,
+          hangul2:      (freeRow as Record<string, unknown>).hangul2           as string,
+          meaning1:     (freeRow as Record<string, unknown>).meaning1          as string,
+          meaning2:     (freeRow as Record<string, unknown>).meaning2          as string,
+          reason:       (freeRow as Record<string, unknown>).meaning_summary   as string,
+          score:        (freeRow as Record<string, unknown>).score             as number,
+          grids:        (freeRow as Record<string, unknown>).grids             as RichName['grids'],
+          ohang1:       (freeRow as Record<string, unknown>).ohang1            as string,
+          ohang2:       (freeRow as Record<string, unknown>).ohang2            as string,
+          soundScore:   (freeRow as Record<string, unknown>).sound_score       as number,
+          soundOhangList: (freeRow as Record<string, unknown>).sound_ohang_list as string[],
+          soundDetails: (freeRow as Record<string, unknown>).sound_details     as string[],
+        }
+      : null;
+
+    // ── 유료 이름 19개 생성 ────────────────────────────────────
     const pool = await collectNames({
       supabase,
       surname,
@@ -154,21 +175,39 @@ export async function POST(
     pool.sort((a, b) => b.score - a.score);
     const top19 = pool.slice(0, 19);
 
+    // ── 무료(1) + 유료(19) = 20개 일괄 detail 생성 ────────────
+    const allForDetail = [...(freeRichName ? [freeRichName] : []), ...top19];
     const { map: detailMap } = await generateDetailedReason(
-      top19.map((n) => ({
-        hangul: n.hangul,
-        hanja1: n.hanja1,
-        hanja2: n.hanja2,
+      allForDetail.map((n) => ({
+        hangul:   n.hangul,
+        hanja1:   n.hanja1,
+        hanja2:   n.hanja2,
         meaning1: n.meaning1,
         meaning2: n.meaning2,
-        hangul1: n.hangul1,
-        hangul2: n.hangul2,
-        reason: n.reason,
+        hangul1:  n.hangul1,
+        hangul2:  n.hangul2,
+        reason:   n.reason,
       })),
       "gpt-4o",
     );
 
-    // ── DB 저장 ───────────────────────────────────────────────
+    // ── DB: 무료 이름 행 UPDATE + 유료 이름 INSERT ─────────────
+    if (freeRichName) {
+      const freeDetail = detailMap[freeRichName.hangul];
+      await supabase
+        .from("name_candidates")
+        .update({
+          meaning_summary:      freeDetail?.summary ?? freeRichName.reason,
+          detailed_explanation: freeDetail
+            ? [freeDetail.summary, '', freeDetail.categories.map((c) => `[${c.title}]\n${c.description}`).join('\n\n'), '', freeDetail.detail?.trim() ?? '', '', freeDetail.tags.join(' ')].join('\n')
+            : '',
+          tags:       freeDetail?.tags       ?? [],
+          categories: freeDetail?.categories ?? [],
+        })
+        .eq("request_id", requestId)
+        .eq("sort_order", 0);
+    }
+
     const { error: insertErr } = await supabase.from("name_candidates").insert(
       top19.map((n, i) =>
         toDbRow({
@@ -193,8 +232,8 @@ export async function POST(
       requestId,
       ohang: lacking,
       ohangCount,
-      names: top19.map((n, i) =>
-        toApiShape(n, detailMap[n.hangul], lacking, i + 1),
+      names: allForDetail.map((n, i) =>
+        toApiShape(n, detailMap[n.hangul], lacking, i),
       ),
     });
   } catch (e) {
