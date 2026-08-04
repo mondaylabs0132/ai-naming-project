@@ -17,7 +17,7 @@ export type RichName = {
   hangul: string; hanja: string;
   hanja1: string; hanja2: string;
   hangul1: string; hangul2: string;
-  meaning1: string; meaning2: string;
+  meaning1: string[]; meaning2: string[];
   reason: string; score: number; grids: Grids;
   ohang1: string; ohang2: string;
   soundScore: number; soundOhangList: string[]; soundDetails: string[];
@@ -254,6 +254,14 @@ export function getFourGrids(sungStrokes: number[], name1Stroke: number, name2St
   };
 }
 
+// 한자 사전의 뜻(訓) 배열 전체를 "훈+음" 표시형 포맷으로 변환. 예: ["준수할", "높을"] + "준" → ["준수할 준", "높을 준"]
+export function buildMeaningsDisplay(meanings: string[] | null | undefined, reading: string): string[] {
+  return (meanings ?? [])
+    .map((m) => m.trim())
+    .filter(Boolean)
+    .map((m) => (reading ? `${m} ${reading}` : m));
+}
+
 export function calcScore(grids: Grids, ohang1: string | null, ohang2: string | null, lacking: string[]): number {
   let score = grids.goodCount * 15;
   if (ohang1 && lacking.includes(ohang1)) score += 10;
@@ -265,14 +273,18 @@ export function calcScore(grids: Grids, ohang1: string | null, ohang2: string | 
   return Math.min(score, 100);
 }
 
+// 오행 상생(生)/상극(剋) 관계표 — 발음오행 점수 계산과 오행 조합 문장 생성에서 공용으로 사용
+export const OHANG_SHENG_MAP: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
+export const OHANG_KE_MAP:    Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+
 export function calcSoundScore(surname: string, hangul: string): { score: number; ohangList: string[]; details: string[] } {
   const soundMap: Record<string, string> = {
     ㄱ: '木', ㅋ: '木', ㄴ: '火', ㄷ: '火', ㄹ: '火', ㅌ: '火',
     ㅇ: '土', ㅎ: '土', ㅅ: '金', ㅈ: '金', ㅊ: '金',
     ㅁ: '水', ㅂ: '水', ㅍ: '水',
   };
-  const shengMap: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-  const keMap:    Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+  const shengMap = OHANG_SHENG_MAP;
+  const keMap    = OHANG_KE_MAP;
 
   const ohangList = [...(surname + hangul)].map((char) => {
     const code = char.charCodeAt(0) - 0xac00;
@@ -365,12 +377,12 @@ export async function generateNames(options: {
 }
 
 export async function generateDetailedReason(
-  names: { hangul: string; hanja1: string; hanja2: string; meaning1: string; meaning2: string; hangul1: string; hangul2: string; reason: string }[],
+  names: { hangul: string; hanja1: string; hanja2: string; meaning1: string[]; meaning2: string[]; hangul1: string; hangul2: string; reason: string }[],
   model = 'gpt-4o',
 ): Promise<{ map: Record<string, NameDetail>; cost: number }> {
   const makePrompt = (batch: typeof names) => {
     const nameList = batch.map((n, idx) =>
-      `${idx + 1}. ${n.hangul} (${n.hanja1}${n.hanja2}): ${n.hanja1}(${n.meaning1} ${n.hangul1}) + ${n.hanja2}(${n.meaning2} ${n.hangul2}) - 기본해설: ${n.reason}`,
+      `${idx + 1}. ${n.hangul} (${n.hanja1}${n.hanja2}): ${n.hanja1}(${n.meaning1[0] ?? ''} ${n.hangul1}) + ${n.hanja2}(${n.meaning2[0] ?? ''} ${n.hangul2}) - 기본해설: ${n.reason}`,
     ).join('\n');
     return `아래 이름들에 대해 각각 4가지 형태의 해설을 작성해주세요.
 한자의 실제 뜻을 바탕으로, 이 이름을 가진 아이가 어떤 사람으로 자라길 바라는지 따뜻하게 작성하세요.
@@ -442,10 +454,10 @@ ${nameList}
 
 // Free 전용 경량 AI 호출 — summary + tags만 생성
 export async function generateBriefDetail(
-  name: { hangul: string; hanja1: string; hanja2: string; meaning1: string; meaning2: string; reason: string },
+  name: { hangul: string; hanja1: string; hanja2: string; meaning1: string[]; meaning2: string[]; reason: string },
   model = 'gpt-4o',
 ): Promise<{ summary: string; tags: string[]; cost: number }> {
-  const prompt = `이름 ${name.hangul} (${name.hanja1}${name.hanja2}): ${name.hanja1}(${name.meaning1}) + ${name.hanja2}(${name.meaning2}) - ${name.reason}
+  const prompt = `이름 ${name.hangul} (${name.hanja1}${name.hanja2}): ${name.hanja1}(${name.meaning1[0] ?? ''}) + ${name.hanja2}(${name.meaning2[0] ?? ''}) - ${name.reason}
 
 아래 두 가지만 JSON으로 작성하세요.
 - summary: 20자 내외 한 줄 요약 (따뜻하고 자연스럽게, 순한글)
@@ -503,10 +515,11 @@ export async function collectNames(params: {
   const results: RichName[] = [];
   let attempts = 0;
 
-  const avoidChars = new Set([
-    ...(survey.avoid_hangul ?? []),
-    ...(survey.sibling_names ?? []).flatMap(name => [...name]),
-  ]);
+  // 형제이름에서 성씨(첫 글자) 제거 후 글자 추출, 돌림자는 avoid에서 제외
+  const siblingGivenChars = (survey.sibling_names ?? []).flatMap((name) =>
+    [...(name.startsWith(surname.hangul) ? name.slice(surname.hangul.length) : name)],
+  ).filter((c) => c !== survey.generation_name);
+  const avoidChars = new Set([...(survey.avoid_hangul ?? []), ...siblingGivenChars]);
 
   const sungStrokes = [surname.won_stroke];
 
@@ -559,12 +572,14 @@ export async function collectNames(params: {
 
       usedNames.add(n.hangul);
       const sound = calcSoundScore(surname.hangul, n.hangul);
+      const reading1 = d1.hangul_main || d1.hangul?.[0] || '';
+      const reading2 = d2.hangul_main || d2.hangul?.[0] || '';
       results.push({
         hangul: n.hangul, hanja: `${d1.hanja}${d2.hanja}`,
         hanja1: d1.hanja, hanja2: d2.hanja,
-        hangul1: d1.hangul_main || d1.hangul?.[0] || '',
-        hangul2: d2.hangul_main || d2.hangul?.[0] || '',
-        meaning1: d1.meanings?.[0] ?? '', meaning2: d2.meanings?.[0] ?? '',
+        hangul1: reading1,
+        hangul2: reading2,
+        meaning1: d1.meanings ?? [], meaning2: d2.meanings ?? [],
         reason: n.reason, score: calcScore(grids, d1.ohang, d2.ohang, lacking),
         grids, ohang1: d1.ohang, ohang2: d2.ohang,
         soundScore: sound.score, soundOhangList: sound.ohangList, soundDetails: sound.details,
@@ -590,6 +605,49 @@ export function buildSajuSummary(name: RichName, lacking: string[]): string {
     : `부족한 기운(${lacking.join(', ') || '없음'}) 보완 없음`;
 }
 
+type OhangKey = '木' | '火' | '土' | '金' | '水';
+
+// 오행별 형용사 + 조사 결합형 — 문장 템플릿 조립용 (하드코딩, AI 미사용)
+const OHANG_ADJ:     Record<OhangKey, string> = { 木: '성장하는', 火: '따뜻한', 土: '안정적인', 金: '단단한', 水: '지혜로운' };
+const OHANG_SUBJECT: Record<OhangKey, string> = { 木: '나무가',   火: '불이',   土: '땅이',     金: '쇠가',   水: '물이' };
+const OHANG_OBJECT:  Record<OhangKey, string> = { 木: '나무를',   火: '불을',   土: '땅을',     金: '쇠를',   水: '물을' };
+
+function isOhangKey(v: string | null | undefined): v is OhangKey {
+  return !!v && v in OHANG_ADJ;
+}
+
+// 이름의 두 오행(ohang1, ohang2)이 사주 부족 오행을 얼마나 보완하는지(보완강도)에 따라
+// 미리 정해둔 문장 템플릿을 조립. AI 호출 없이 하드코딩된 규칙으로만 생성한다.
+export function buildOhangSummary(name: RichName, lacking: string[]): string {
+  const el1 = name.ohang1, el2 = name.ohang2;
+  if (!isOhangKey(el1) || !isOhangKey(el2)) return '';
+
+  let base: string;
+  if (el1 === el2) {
+    base = `${OHANG_ADJ[el1]} ${OHANG_SUBJECT[el1]} 두 글자에 겹쳐 기운이 더욱 깊어지는`;
+  } else {
+    const relation =
+      OHANG_SHENG_MAP[el1] === el2 || OHANG_SHENG_MAP[el2] === el1 ? '만나 조화를 이루는'
+      : OHANG_KE_MAP[el1] === el2 || OHANG_KE_MAP[el2] === el1     ? '만나 팽팽한 균형을 이루는'
+      :                                                               '만나 어우러지는';
+    base = `${OHANG_ADJ[el1]} ${OHANG_SUBJECT[el1]} ${OHANG_ADJ[el2]} ${OHANG_OBJECT[el2]} ${relation}`;
+  }
+
+  // 보완강도: 이름의 오행 중 사주 부족 오행(lacking)과 겹치는 개수
+  const matchCount = el1 === el2
+    ? (lacking.includes(el1) ? 2 : 0)
+    : [el1, el2].filter((el) => lacking.includes(el)).length;
+
+  if (matchCount === 2) {
+    return `${base} 좋은 오행 구성이에요. 타고난 사주에 부족한 기운을 두 글자 모두가 채워주는 아주 좋은 궁합이에요.`;
+  }
+  if (matchCount === 1) {
+    const filled = lacking.includes(el1) ? el1 : el2;
+    return `${base} 좋은 오행 구성이에요. 특히 사주에 부족한 ${filled} 기운을 이름이 채워줘요.`;
+  }
+  return `${base} 좋은 오행 구성이에요.`;
+}
+
 export function buildNumerologySummary(name: RichName): string {
   return [
     `원격 ${name.grids.원격.stroke}획(${ll(name.grids.원격.luck)})`,
@@ -613,13 +671,16 @@ export function toApiShape(name: RichName, detail: NameDetail | undefined, lacki
     hangul: name.hangul, hanja: name.hanja,
     hanja1: name.hanja1, hanja2: name.hanja2,
     hangul1: name.hangul1, hangul2: name.hangul2,
-    meaning1: name.meaning1, meaning2: name.meaning2,
+    meaning1: name.meaning1[0] ?? '', meaning2: name.meaning2[0] ?? '',
+    meanings1: buildMeaningsDisplay(name.meaning1, name.hangul1),
+    meanings2: buildMeaningsDisplay(name.meaning2, name.hangul2),
     score: name.score,
     grids: name.grids,
     ohang1: name.ohang1, ohang2: name.ohang2,
     soundScore: name.soundScore, soundOhangList: name.soundOhangList, soundDetails: name.soundDetails,
     meaningSummary:      detail?.summary ?? name.reason,
     sajuSummary:         buildSajuSummary(name, lacking),
+    ohangSummary:        buildOhangSummary(name, lacking),
     numerologySummary:   buildNumerologySummary(name),
     detailedExplanation: buildDetailedExplanation(name, detail),
     totalStrokes:        name.grids.총격.rawStroke,
@@ -643,11 +704,11 @@ export function toDbRow(params: {
     surname_hanja:        surname.hanja,
     given_name_hangul:    name.hangul,
     given_name_hanja:     name.hanja,
-    hanja1:               name.hanja1,    hanja2:    name.hanja2,
-    hangul1:              name.hangul1,   hangul2:   name.hangul2,
-    meaning1:             name.meaning1,  meaning2:  name.meaning2,
+    hanja1:               name.hanja1,   hanja2:  name.hanja2,
+    hangul1:              name.hangul1,  hangul2: name.hangul2,
+    meaning1:             name.meaning1, meaning2: name.meaning2,
     meaning_summary:      detail?.summary ?? name.reason,
-    saju_summary:         buildSajuSummary(name, lacking),
+    saju_summary:         [buildSajuSummary(name, lacking), buildOhangSummary(name, lacking)],
     numerology_summary:   buildNumerologySummary(name),
     detailed_explanation: buildDetailedExplanation(name, detail),
     tags:                 detail?.tags ?? [],
@@ -680,11 +741,11 @@ export function toDbRowBrief(params: {
     surname_hanja:        surname.hanja,
     given_name_hangul:    name.hangul,
     given_name_hanja:     name.hanja,
-    hanja1:               name.hanja1,    hanja2:    name.hanja2,
-    hangul1:              name.hangul1,   hangul2:   name.hangul2,
-    meaning1:             name.meaning1,  meaning2:  name.meaning2,
+    hanja1:               name.hanja1,   hanja2:  name.hanja2,
+    hangul1:              name.hangul1,  hangul2: name.hangul2,
+    meaning1:             name.meaning1, meaning2: name.meaning2,
     meaning_summary:      summary,
-    saju_summary:         buildSajuSummary(name, lacking),
+    saju_summary:         [buildSajuSummary(name, lacking), buildOhangSummary(name, lacking)],
     numerology_summary:   buildNumerologySummary(name),
     detailed_explanation: '',
     tags,
@@ -701,6 +762,9 @@ export function toDbRowBrief(params: {
 }
 
 export function toApiShapeFromDb(row: Record<string, unknown>) {
+  const m1 = (row.meaning1 as string[]) ?? [];
+  const m2 = (row.meaning2 as string[]) ?? [];
+  const saju = (row.saju_summary as string[]) ?? [];
   return {
     sortOrder:           row.sort_order as number,
     hangul:              row.given_name_hangul as string,
@@ -709,11 +773,14 @@ export function toApiShapeFromDb(row: Record<string, unknown>) {
     hanja2:              (row.hanja2 as string) ?? '',
     hangul1:             (row.hangul1 as string) ?? '',
     hangul2:             (row.hangul2 as string) ?? '',
-    meaning1:            (row.meaning1 as string) ?? '',
-    meaning2:            (row.meaning2 as string) ?? '',
+    meaning1:            m1[0] ?? '',
+    meaning2:            m2[0] ?? '',
+    meanings1:           buildMeaningsDisplay(m1, (row.hangul1 as string) ?? ''),
+    meanings2:           buildMeaningsDisplay(m2, (row.hangul2 as string) ?? ''),
     grids:               (row.grids as Grids) ?? {},
     meaningSummary:      row.meaning_summary as string,
-    sajuSummary:         row.saju_summary as string,
+    sajuSummary:         saju[0] ?? '',
+    ohangSummary:        saju[1] ?? '',
     numerologySummary:   row.numerology_summary as string,
     detailedExplanation: row.detailed_explanation as string,
     tags:                (row.tags as string[]) ?? [],

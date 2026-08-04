@@ -134,22 +134,22 @@ export async function POST(
     // freeRow 데이터로 RichName 재구성 (detail 생성에 필요)
     const freeRichName: RichName | null = freeRow
       ? {
-          hangul:       (freeRow as Record<string, unknown>).given_name_hangul as string,
-          hanja:        (freeRow as Record<string, unknown>).given_name_hanja  as string,
-          hanja1:       (freeRow as Record<string, unknown>).hanja1            as string,
-          hanja2:       (freeRow as Record<string, unknown>).hanja2            as string,
-          hangul1:      (freeRow as Record<string, unknown>).hangul1           as string,
-          hangul2:      (freeRow as Record<string, unknown>).hangul2           as string,
-          meaning1:     (freeRow as Record<string, unknown>).meaning1          as string,
-          meaning2:     (freeRow as Record<string, unknown>).meaning2          as string,
-          reason:       (freeRow as Record<string, unknown>).meaning_summary   as string,
-          score:        (freeRow as Record<string, unknown>).score             as number,
-          grids:        (freeRow as Record<string, unknown>).grids             as RichName['grids'],
-          ohang1:       (freeRow as Record<string, unknown>).ohang1            as string,
-          ohang2:       (freeRow as Record<string, unknown>).ohang2            as string,
-          soundScore:   (freeRow as Record<string, unknown>).sound_score       as number,
-          soundOhangList: (freeRow as Record<string, unknown>).sound_ohang_list as string[],
-          soundDetails: (freeRow as Record<string, unknown>).sound_details     as string[],
+          hangul:         (freeRow as Record<string, unknown>).given_name_hangul   as string,
+          hanja:          (freeRow as Record<string, unknown>).given_name_hanja    as string,
+          hanja1:         (freeRow as Record<string, unknown>).hanja1              as string,
+          hanja2:         (freeRow as Record<string, unknown>).hanja2              as string,
+          hangul1:        (freeRow as Record<string, unknown>).hangul1             as string,
+          hangul2:        (freeRow as Record<string, unknown>).hangul2             as string,
+          meaning1:       ((freeRow as Record<string, unknown>).meaning1           as string[]) ?? [],
+          meaning2:       ((freeRow as Record<string, unknown>).meaning2           as string[]) ?? [],
+          reason:         (freeRow as Record<string, unknown>).meaning_summary     as string,
+          score:          (freeRow as Record<string, unknown>).score               as number,
+          grids:          (freeRow as Record<string, unknown>).grids               as RichName['grids'],
+          ohang1:         (freeRow as Record<string, unknown>).ohang1              as string,
+          ohang2:         (freeRow as Record<string, unknown>).ohang2              as string,
+          soundScore:     (freeRow as Record<string, unknown>).sound_score         as number,
+          soundOhangList: ((freeRow as Record<string, unknown>).sound_ohang_list   as string[]) ?? [],
+          soundDetails:   ((freeRow as Record<string, unknown>).sound_details      as string[]) ?? [],
         }
       : null;
 
