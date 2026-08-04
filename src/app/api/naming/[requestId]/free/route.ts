@@ -10,10 +10,8 @@ import {
   ohangFromSurvey,
   fetchSurveyAndSurname,
   collectNames,
-  generateDetailedReason,
-  toDbRow,
-  toApiShape,
-  toApiShapeFromDb,
+  generateBriefDetail,
+  toDbRowBrief,
 } from "../_lib";
 
 export async function POST(
@@ -47,11 +45,20 @@ export async function POST(
             count: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 },
           };
 
+      const row = cached as Record<string, unknown>;
       return NextResponse.json({
         requestId,
         ohang,
         ohangCount,
-        freeName: toApiShapeFromDb(cached as Record<string, unknown>),
+        freeName: {
+          hangul:  row.given_name_hangul as string,
+          hanja:   row.given_name_hanja  as string,
+          hanja1:  row.hanja1            as string,
+          hanja2:  row.hanja2            as string,
+          score:   row.score             as number,
+          summary: row.meaning_summary   as string,
+          tags:    (row.tags as string[]) ?? [],
+        },
       });
     }
 
@@ -115,31 +122,27 @@ export async function POST(
       pool.find((r) => r.score >= 75) ??
       pool[0];
 
-    const { map: detailMap } = await generateDetailedReason(
-      [
-        {
-          hangul: freeName.hangul,
-          hanja1: freeName.hanja1,
-          hanja2: freeName.hanja2,
-          meaning1: freeName.meaning1,
-          meaning2: freeName.meaning2,
-          hangul1: freeName.hangul1,
-          hangul2: freeName.hangul2,
-          reason: freeName.reason,
-        },
-      ],
+    const { summary, tags } = await generateBriefDetail(
+      {
+        hangul:   freeName.hangul,
+        hanja1:   freeName.hanja1,
+        hanja2:   freeName.hanja2,
+        meaning1: freeName.meaning1,
+        meaning2: freeName.meaning2,
+        reason:   freeName.reason,
+      },
       "gpt-4o",
     );
 
-    // ── DB 저장 ───────────────────────────────────────────────
+    // ── DB 저장 (summary + tags만, detail은 premium 호출 시 UPDATE) ──
     const { error: insertErr } = await supabase.from("name_candidates").insert(
-      toDbRow({
+      toDbRowBrief({
         requestId,
         sortOrder: 0,
-        isFreeName: true,
         surname,
         name: freeName,
-        detail: detailMap[freeName.hangul],
+        summary,
+        tags,
         lacking,
       }),
     );
@@ -158,7 +161,15 @@ export async function POST(
       requestId,
       ohang: lacking,
       ohangCount,
-      freeName: toApiShape(freeName, detailMap[freeName.hangul], lacking, 0),
+      freeName: {
+        hangul: freeName.hangul,
+        hanja:  freeName.hanja,
+        hanja1: freeName.hanja1,
+        hanja2: freeName.hanja2,
+        score:  freeName.score,
+        summary,
+        tags,
+      },
     });
   } catch (e) {
     if (shouldRollbackFreeUsage) {
