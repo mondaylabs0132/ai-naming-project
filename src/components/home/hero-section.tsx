@@ -23,7 +23,7 @@ export default function HeroSection({
 
   return (
     <>
-      <section className="bg-[#F9F7F9] overflow-hidden px-5 my-12">
+      <section className="bg-[#F9F7F9] pl-5 my-12">
         <div className="flex items-center gap-2">
           {/* 왼쪽: 텍스트 + CTA */}
           <div className="flex flex-col min-w-0" style={{ flex: "1 1 56%" }}>
@@ -68,7 +68,7 @@ export default function HeroSection({
           {/* 오른쪽: 히어로 이미지 */}
           <div
             className="flex items-center justify-center min-w-0"
-            style={{ flex: "1 1 44%" }}
+            style={{ flex: "1 1 50%" }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { toError } from "@/lib/supabase/error";
 import { scoreToLabel, scoreToStars } from "@/lib/result/score";
 
 // 보관함 카드 하나. 여러 분석에 걸친 이름이 한 목록에 섞이므로
@@ -53,7 +54,7 @@ export async function getBookmarks(): Promise<BookmarkItem[]> {
     )
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw toError(error);
 
   const rows = (data ?? []) as unknown as FavoriteRow[];
 
@@ -94,7 +95,7 @@ export async function removeBookmark(candidateId: string): Promise<void> {
     .delete()
     .eq("name_candidate_id", candidateId);
 
-  if (error) throw error;
+  if (error) throw toError(error);
 }
 
 // 저장 추가. 상세 화면의 "보관함에 담기"와 보관함의 "되돌리기"가 함께 쓴다.
@@ -107,5 +108,5 @@ export async function addBookmark(
     .from("name_favorites")
     .insert({ user_id: userId, name_candidate_id: candidateId });
 
-  if (error) throw error;
+  if (error) throw toError(error);
 }
