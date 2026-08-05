@@ -1,12 +1,15 @@
 import { createClient } from "@/lib/supabase/client";
+import { toError } from "@/lib/supabase/error";
 
 export type MyPageSummary = {
   email: string | null;
   joinedAt: string | null; // users.created_at
 
-  // 최근 분석
+  // 최근 분석 — 재열람 가능한(유료 결과가 준비된) 건만 센다.
+  // 무료 건은 결과 화면이 없어 "결과 보러가기"의 대상이 될 수 없다.
+  latestRequestId: string | null;
   latestNameCount: number; // 최근 request의 name_candidates 개수
-  latestAnalyzedAt: string | null; // 최근 request의 updated_at
+  latestAnalyzedAt: string | null; // 최근 request의 결제 완료 시각
 
   // 쿠폰
   activeCouponCount: number;
@@ -38,18 +41,21 @@ export async function getMyPageSummary(): Promise<MyPageSummary | null> {
     .select("email, created_at")
     .eq("id", userId)
     .maybeSingle();
-  if (userError) throw userError;
+  if (userError) throw toError(userError);
 
-  // 2) 최근 분석 request (삭제되지 않은 것 중 가장 최근)
+  // 2) 최근 분석 request — 유료 결과가 준비된 건만.
+  //    결제 시각 우선, 없으면 생성 시각으로 최신 판정.
   const { data: latestRequest, error: requestError } = await supabase
     .from("naming_requests")
-    .select("id, updated_at")
+    .select("id, paid_at, created_at")
     .eq("user_id", userId)
+    .eq("status", "PREMIUM_RESULT_READY")
     .is("deleted_at", null)
+    .order("paid_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (requestError) throw requestError;
+  if (requestError) throw toError(requestError);
 
   // 3) 최근 request의 이름 후보 개수
   let latestNameCount = 0;
@@ -58,7 +64,7 @@ export async function getMyPageSummary(): Promise<MyPageSummary | null> {
       .from("name_candidates")
       .select("id", { count: "exact", head: true })
       .eq("request_id", latestRequest.id);
-    if (countError) throw countError;
+    if (countError) throw toError(countError);
     latestNameCount = count ?? 0;
   }
 
@@ -69,7 +75,7 @@ export async function getMyPageSummary(): Promise<MyPageSummary | null> {
     .eq("user_id", userId)
     .eq("status", "ACTIVE")
     .gt("expires_at", new Date().toISOString());
-  if (couponError) throw couponError;
+  if (couponError) throw toError(couponError);
 
   // 5) 최근 결제 (COMPLETED) — paid_at 기준 최신
   const { data: latestOrder, error: orderError } = await supabase
@@ -80,13 +86,14 @@ export async function getMyPageSummary(): Promise<MyPageSummary | null> {
     .order("paid_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (orderError) throw orderError;
+  if (orderError) throw toError(orderError);
 
   return {
     email: userRow?.email ?? user.email ?? null,
     joinedAt: userRow?.created_at ?? null,
+    latestRequestId: latestRequest?.id ?? null,
     latestNameCount,
-    latestAnalyzedAt: latestRequest?.updated_at ?? null,
+    latestAnalyzedAt: latestRequest?.paid_at ?? latestRequest?.created_at ?? null,
     activeCouponCount: activeCouponCount ?? 0,
     latestPaidAmount: latestOrder?.amount ?? null,
     latestPaidAt: latestOrder?.paid_at ?? null,

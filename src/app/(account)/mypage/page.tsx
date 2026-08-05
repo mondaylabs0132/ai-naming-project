@@ -3,15 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Bell,
   ChevronRight,
   Clock,
   FileText,
-  HelpCircle,
   LogOut,
   Mail,
-  Megaphone,
   Receipt,
   RefreshCw,
   Shield,
@@ -164,8 +163,23 @@ export default function MyPage() {
               </span>
             </MiniCard>
             <div className="w-full min-w-0 sm:basis-3/5 flex flex-col justify-center">
-              <ListRow icon={<FileText size={16} />} label="결과 보러가기" />
-              <ListRow icon={<Clock size={16} />} label="분석 이력 전체보기" />
+              {/* 유료 결과가 없으면 갈 곳이 없다 — 로딩 중에는 비활성으로 두고
+                  깜빡임을 피하기 위해 안내 문구도 띄우지 않는다. */}
+              <ListRow
+                icon={<FileText size={16} />}
+                label="결과 보러가기"
+                href={
+                  summary?.latestRequestId
+                    ? `/mypage/results/${summary.latestRequestId}`
+                    : undefined
+                }
+                hint={loading ? undefined : "분석 내역 없음"}
+              />
+              <ListRow
+                icon={<Clock size={16} />}
+                label="분석 이력 전체보기"
+                href="/mypage/results"
+              />
             </div>
           </div>
         </SectionCard>
@@ -197,7 +211,11 @@ export default function MyPage() {
               </span>
             </MiniCard>
             <div className="w-full min-w-0 sm:basis-3/5 flex flex-col justify-center">
-              <ListRow icon={<Receipt size={16} />} label="쿠폰 사용 내역" />
+              <ListRow
+                icon={<Receipt size={16} />}
+                label="쿠폰 사용 내역"
+                href="/mypage/coupons"
+              />
             </div>
           </div>
         </SectionCard>
@@ -241,8 +259,8 @@ export default function MyPage() {
               <ListRow
                 icon={<FileText size={16} />}
                 label="결제 내역 전체보기"
+                href="/mypage/orders"
               />
-              <ListRow icon={<Receipt size={16} />} label="영수증 보기" />
             </div>
           </div>
         </SectionCard>
@@ -252,28 +270,18 @@ export default function MyPage() {
       <div className="mx-5 mb-3">
         <SectionCard>
           <SectionHeader badge="4" label="고객 지원" />
-          {/* 모바일: 세로 목록 / sm 이상: 3열 */}
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {[
-              { icon: <Megaphone size={18} />, label: "공지사항" },
-              { icon: <HelpCircle size={18} />, label: "자주 묻는 질문" },
-              { icon: <Mail size={18} />, label: "문의하기" },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="flex-1 min-w-0 flex flex-row items-center gap-2 px-3 py-2 sm:px-2 sm:justify-center border border-divider rounded-md"
-              >
-                <span className="text-primary shrink-0">{item.icon}</span>
-                <span className="text-ink break-keep text-caption">
-                  {item.label}
-                </span>
-                <ChevronRight
-                  size={14}
-                  className="text-ink-muted shrink-0 ml-auto sm:ml-0"
-                />
-              </div>
-            ))}
-          </div>
+          <Link
+            href="/mypage/inquiries"
+            className="flex items-center gap-2 px-3 py-2 border border-divider rounded-md"
+          >
+            <span className="text-primary shrink-0">
+              <Mail size={18} />
+            </span>
+            <span className="flex-1 min-w-0 text-ink break-keep text-caption">
+              문의하기
+            </span>
+            <ChevronRight size={14} className="text-ink-muted shrink-0" />
+          </Link>
         </SectionCard>
       </div>
 
