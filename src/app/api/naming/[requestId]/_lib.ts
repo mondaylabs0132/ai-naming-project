@@ -40,6 +40,9 @@ export type SurveyRow = {
   gender: '남자' | '여자';
   mood_keywords: string[];
   avoid_hangul: string[];
+  // 설문에서 고른 기피 한자의 hanja.id 목록(최대 5개).
+  // 글자 자체가 아니라 id로 저장되므로 생성 전에 문자로 풀어야 한다.
+  avoid_hanja_id: number[];
   sibling_names: string[];
   generation_name: string | null;
 };
@@ -366,16 +369,22 @@ export async function callAI(
 export async function generateNames(options: {
   surname: string; gender: '남자' | '여자'; ohang: string[];
   dolrimja?: string; model?: string; moodKeywords?: string[];
+  avoidHanja?: string[];
 }): Promise<{ names: { hangul: string; hanja: string; reason: string }[]; cost: number }> {
   const model = options.model ?? MODEL_NAME_GEN;
   const dolrimjaText = options.dolrimja ? `돌림자: "${options.dolrimja}" 반드시 포함` : '';
   const moodText = options.moodKeywords?.length ? `분위기: ${options.moodKeywords.join(', ')}` : '';
+  // 걸러내는 건 아래 collectNames의 필터가 확실히 하지만, 미리 알려주면
+  // 버려질 후보를 덜 만들어 통과율이 올라간다.
+  const avoidHanjaText = options.avoidHanja?.length
+    ? `\n4. 다음 한자는 절대 사용 금지: ${options.avoidHanja.join(', ')}`
+    : '';
   const prompt = `성씨: ${options.surname} | 성별: ${options.gender} | 부족한 오행: ${options.ohang.join('/')} ${dolrimjaText} ${moodText}
 
 아래 조건을 반드시 지켜주세요:
 1. 이름은 성씨 제외 두 글자만 출력 (예: 성씨가 박이면 "준서"만, "박준서" 절대 금지)
 2. 두 글자 이름 ${NAMES_PER_CALL}개 생성
-3. 다양한 이름 생성 (비슷한 이름 반복 금지)
+3. 다양한 이름 생성 (비슷한 이름 반복 금지)${avoidHanjaText}
 
 출력형식:
 {"names":[{"hangul":"두글자이름","hanja":"한자두글자","reason":"50자이내이유"}]}
@@ -592,6 +601,26 @@ export async function collectNames(params: {
   ).filter((c) => c !== survey.generation_name);
   const avoidChars = new Set([...(survey.avoid_hangul ?? []), ...siblingGivenChars]);
 
+  // 기피 한자는 id로 저장돼 있어 글자로 풀어야 비교할 수 있다.
+  // hanja 테이블은 글자가 유일하므로 id↔글자가 1:1이다.
+  // 재시도해도 값이 같으니 루프 밖에서 한 번만 조회한다.
+  const avoidHanjaIds = survey.avoid_hanja_id ?? [];
+  const avoidHanjaChars = new Set<string>();
+  if (avoidHanjaIds.length > 0) {
+    const { data, error } = await supabase
+      .from('hanja')
+      .select('hanja')
+      .in('id', avoidHanjaIds);
+
+    // 조회에 실패하면 기피 한자가 그대로 결과에 섞인다.
+    // 사용자가 명시적으로 배제한 글자라 조용히 넘어가면 안 된다.
+    if (error) {
+      console.error(`[collectNames] 기피 한자 조회 실패: ${error.message}`);
+      throw new Error('기피 한자 정보를 불러오지 못했습니다.');
+    }
+    for (const row of data ?? []) avoidHanjaChars.add((row as { hanja: string }).hanja);
+  }
+
   const sungStrokes = [surname.won_stroke];
 
   while (results.length < target && attempts < maxAttempts) {
@@ -603,6 +632,7 @@ export async function collectNames(params: {
       dolrimja: survey.generation_name ?? undefined,
       model,
       moodKeywords: safeMoods,
+      avoidHanja: [...avoidHanjaChars],
     });
     totalCost += cost;
 
@@ -616,11 +646,18 @@ export async function collectNames(params: {
     // 요청 대비 필터 통과율. 요청 개수를 바꾸면 이 비율의 기준선도 달라지므로 함께 남긴다.
     const beforeCount = results.length;
 
+    let avoidedByHanja = 0;
+
     const valid = aiNames.filter((n) => {
       if (usedNames.has(n.hangul)) return false;
       const chars = [...n.hangul];
       if (chars.length !== 2 || chars[0] === chars[1]) return false;
       if (avoidChars.size > 0 && chars.some(c => avoidChars.has(c))) return false;
+      // 사용자가 배제한 한자가 한 글자라도 있으면 탈락시킨다.
+      if (avoidHanjaChars.size > 0 && [...(n.hanja ?? '')].some(c => avoidHanjaChars.has(c))) {
+        avoidedByHanja++;
+        return false;
+      }
       return !blacklist.some((b) => n.hangul === (b.length === 3 ? b.slice(1) : b));
     });
 
@@ -667,8 +704,9 @@ export async function collectNames(params: {
         soundScore: sound.score, soundOhangList: sound.ohangList, soundDetails: sound.details,
       });
     }
+    // avoidedHanja가 크면 프롬프트의 금지 지시가 안 먹히고 있다는 뜻이다.
     console.log(
-      `[collectNames] requested=${NAMES_PER_CALL} ai=${aiNames.length} passed=${results.length - beforeCount} total=${results.length}/${target} attempt=${attempts + 1}`,
+      `[collectNames] requested=${NAMES_PER_CALL} ai=${aiNames.length} passed=${results.length - beforeCount} avoidedHanja=${avoidedByHanja} total=${results.length}/${target} attempt=${attempts + 1}`,
     );
     attempts++;
   }
