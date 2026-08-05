@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import ResultDetailView from "@/components/result/ResultDetailView";
 import { fetchNameDetail } from "@/lib/result/name-detail";
 import { createClient } from "@/lib/supabase/server";
+import { loginRedirect } from "@/lib/auth/redirect";
 
 export default async function PremiumNameDetailPage({
   params,
@@ -17,7 +18,7 @@ export default async function PremiumNameDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/login?redirectTo=/upgrade/${resultId}/result/${nameId}`);
+    redirect(loginRedirect(`/upgrade/${resultId}/result/${nameId}`));
   }
 
   // 2. 소유권 — RLS(auth.uid() = user_id, deleted_at IS NULL)본인 결과가 아니면 존재를 숨김(404)

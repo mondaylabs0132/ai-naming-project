@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { loginRedirect } from "@/lib/auth/redirect";
 import PremiumGeneratingClient from "./_components/generating-client";
 
 export default async function PremiumGeneratingPage({
@@ -16,7 +17,7 @@ export default async function PremiumGeneratingPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/login?redirectTo=/upgrade/${resultId}/generating`);
+    redirect(loginRedirect(`/upgrade/${resultId}/generating`));
   }
 
   // 2. 소유권 — 타인 소유 결과 차단(미귀속 결과는 결제 확정 시 귀속되므로 허용)

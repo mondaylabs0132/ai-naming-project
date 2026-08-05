@@ -67,7 +67,10 @@ export default function BookmarkListView({ userId }: { userId: string }) {
     if (removing.has(item.id)) return;
     setRemoving((p) => new Set(p).add(item.id));
 
-    const snapshot = items;
+    // 복구 위치만 기억하고 목록 전체는 스냅샷하지 않는다.
+    // 다른 항목의 삭제가 겹친 상태에서 옛 스냅샷으로 되돌리면
+    // 뒤 요청이 지운 항목이 화면에 되살아난다.
+    const index = items.findIndex((i) => i.id === item.id);
     setItems((prev) => prev.filter((i) => i.id !== item.id));
 
     try {
@@ -78,7 +81,13 @@ export default function BookmarkListView({ userId }: { userId: string }) {
       setUndo(item);
       undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
     } catch {
-      setItems(snapshot);
+      // 실패한 항목 하나만 원래 자리에 되돌린다.
+      setItems((prev) => {
+        if (prev.some((i) => i.id === item.id)) return prev;
+        const next = [...prev];
+        next.splice(index < 0 ? next.length : Math.min(index, next.length), 0, item);
+        return next;
+      });
     } finally {
       setRemoving((p) => {
         const next = new Set(p);

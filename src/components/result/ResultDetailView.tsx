@@ -436,8 +436,12 @@ export default function ResultDetailView({
           <Card>
             <CardTitle title="이름 의미와 유래" />
             <div className="flex flex-col divide-y divide-[var(--color-divider)]">
-              {hanjaItems.map((h) => (
-                <div key={h.char} className="flex gap-3 py-4 first:pt-0 last:pb-0">
+              {/* 이름 두 글자가 같은 한자일 수 있으므로 인덱스를 키에 포함한다 */}
+              {hanjaItems.map((h, i) => (
+                <div
+                  key={`${i}-${h.char}`}
+                  className="flex gap-3 py-4 first:pt-0 last:pb-0"
+                >
                   <div
                     className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center"
                     style={{ background: "var(--color-primary-pale)" }}
