@@ -8,12 +8,13 @@ import {
   Heart,
   Mail,
   RotateCw,
-  Star,
-  StarHalf,
   TriangleAlert,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { scoreToLabel, scoreToStars } from "@/lib/result/score";
+import StarRating from "@/components/result/StarRating";
+import TagPill from "@/components/result/TagPill";
 import Link from "next/link";
 
 // name_candidates 한 행을 화면 표시용으로 매핑한 형태.
@@ -27,18 +28,6 @@ export type ResultName = {
   desc: string; // meaning_summary
   tags: string[];
 };
-
-// score는 100점 만점. 별점 UI(5개)로 보여주기 위해 0~5(0.5 단위)로 환산.
-function scoreToStars(score: number): number {
-  const stars = Math.round(score / 10) / 2; // score/20 을 0.5 단위로 반올림
-  return Math.max(0, Math.min(5, stars));
-}
-
-function scoreToLabel(score: number): string {
-  if (score >= 90) return "추천도 매우 높음";
-  if (score >= 70) return "추천도 높음";
-  return "추천도 보통";
-}
 
 const STATS = [
   {
@@ -64,9 +53,13 @@ const STATS = [
 export default function ResultPageView({
   requestId,
   userId,
+  // 이름 상세로 가는 경로. 결제 직후 흐름과 마이페이지 재열람 흐름의 URL이 다르므로
+  // 목록을 공유하되 링크 베이스만 주입받는다.
+  detailBasePath = `/upgrade/${requestId}/result`,
 }: {
   requestId: string;
   userId: string;
+  detailBasePath?: string;
 }) {
   const [activeSort, setActiveSort] = useState<"추천도" | "가나다">("추천도");
   const [names, setNames] = useState<ResultName[]>([]);
@@ -236,8 +229,15 @@ export default function ResultPageView({
             style={{ width: "80px", height: "auto" }}
           />
         </Link>
-        {/* 부부 공유 기능을 접고 좋아요 보관함 방향으로 정리하면서 제거.
-            보관함 화면이 준비되면 이 자리에 보관함 진입 버튼을 붙인다. */}
+        {/* 부부 공유 기능을 접고 좋아요 보관함 방향으로 정리한 자리 */}
+        <Link
+          href="/bookmarks"
+          className="flex items-center gap-[5px] font-medium border border-primary text-primary px-3 py-[6px] shrink-0"
+          style={{ fontSize: "12px", borderRadius: "var(--radius-pill)" }}
+        >
+          <Heart size={13} />
+          보관함
+        </Link>
       </div>
 
       {/* ── 히어로 카드 ── */}
@@ -426,7 +426,7 @@ export default function ResultPageView({
                     </span>
                   </button>
                   <Link
-                    href={`/upgrade/${requestId}/result/${item.id}`}
+                    href={`${detailBasePath}/${item.id}`}
                     className="flex items-end justify-center gap-[2px] text-primary min-h-[44px] pb-1"
                   >
                     <span className="font-medium whitespace-nowrap text-[10px] min-[376px]:text-nav">
@@ -479,40 +479,3 @@ function NameCardSkeleton() {
   );
 }
 
-function StarRating({ stars }: { stars: number }) {
-  const full = Math.floor(stars);
-  const half = stars % 1 >= 0.5;
-  const empty = 5 - full - (half ? 1 : 0);
-  const size = "size-3 min-[376px]:size-[13px] shrink-0";
-  return (
-    <div className="flex items-center gap-[2px] shrink-0">
-      {Array.from({ length: full }).map((_, i) => (
-        <Star key={`f${i}`} className={size} fill="#FFBA00" stroke="none" />
-      ))}
-      {half && <StarHalf className={size} fill="#FFBA00" stroke="none" />}
-      {Array.from({ length: empty }).map((_, i) => (
-        <Star key={`e${i}`} className={size} fill="none" stroke="#FFBA00" />
-      ))}
-    </div>
-  );
-}
-
-function TagPill({ label }: { label: string }) {
-  const base =
-    "px-1.5 min-[376px]:px-2 py-[3px] text-[10px] min-[376px]:text-[11px] font-medium rounded-full whitespace-nowrap";
-  const isGreen = label === "사주 조화 우수";
-  const isYellow = label.includes("발음") || label.includes("기운");
-  if (isGreen) {
-    return (
-      <span className={`${base} bg-[#E8F5E9] text-[#2E7D32]`}>{label}</span>
-    );
-  }
-  if (isYellow) {
-    return (
-      <span className={`${base} bg-[#FFF8E1] text-[#F57F17]`}>{label}</span>
-    );
-  }
-  return (
-    <span className={`${base} bg-primary-pale text-primary`}>{label}</span>
-  );
-}

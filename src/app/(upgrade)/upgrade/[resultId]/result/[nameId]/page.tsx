@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 
 import ResultDetailView from "@/components/result/ResultDetailView";
+import { fetchNameDetail } from "@/lib/result/name-detail";
 import { createClient } from "@/lib/supabase/server";
+import { loginRedirect } from "@/lib/auth/redirect";
 
 export default async function PremiumNameDetailPage({
   params,
@@ -9,7 +11,6 @@ export default async function PremiumNameDetailPage({
   params: Promise<{ resultId: string; nameId: string }>;
 }) {
   const { resultId, nameId } = await params;
-  void nameId;
 
   // 1. 인증 — 미로그인 시 로그인 페이지로 (인증 후 이 결과로 복귀)
   const supabase = await createClient();
@@ -17,7 +18,7 @@ export default async function PremiumNameDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/login?redirectTo=/upgrade/${resultId}/result/${nameId}`);
+    redirect(loginRedirect(`/upgrade/${resultId}/result/${nameId}`));
   }
 
   // 2. 소유권 — RLS(auth.uid() = user_id, deleted_at IS NULL)본인 결과가 아니면 존재를 숨김(404)
@@ -41,5 +42,9 @@ export default async function PremiumNameDetailPage({
     redirect(`/upgrade/${resultId}/checkout`);
   }
 
-  return <ResultDetailView />;
+  // 4. 이름 상세 — 이 결과에 속한 이름이 아니면 존재를 숨김(404)
+  const detail = await fetchNameDetail(supabase, resultId, nameId);
+  if (!detail) notFound();
+
+  return <ResultDetailView detail={detail} userId={user.id} />;
 }

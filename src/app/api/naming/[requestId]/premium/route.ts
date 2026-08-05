@@ -8,9 +8,12 @@ import {
   fetchSurveyAndSurname,
   collectNames,
   generateDetailedReason,
+  buildDetailedExplanation,
+  buildDetailBody,
   toDbRow,
   toApiShape,
   toApiShapeFromDb,
+  MODEL_NAME_GEN,
   type RichName,
 } from "../_lib";
 
@@ -154,14 +157,14 @@ export async function POST(
       : null;
 
     // ── 유료 이름 19개 생성 ────────────────────────────────────
-    const pool = await collectNames({
+    const { names: pool, cost: nameCost } = await collectNames({
       supabase,
       surname,
       survey,
       lacking,
       target: 19,
       maxAttempts: 4,
-      model: "gpt-4o",
+      model: MODEL_NAME_GEN,
       usedNames,
     });
 
@@ -177,18 +180,14 @@ export async function POST(
 
     // ── 무료(1) + 유료(19) = 20개 일괄 detail 생성 ────────────
     const allForDetail = [...(freeRichName ? [freeRichName] : []), ...top19];
-    const { map: detailMap } = await generateDetailedReason(
-      allForDetail.map((n) => ({
-        hangul:   n.hangul,
-        hanja1:   n.hanja1,
-        hanja2:   n.hanja2,
-        meaning1: n.meaning1,
-        meaning2: n.meaning2,
-        hangul1:  n.hangul1,
-        hangul2:  n.hangul2,
-        reason:   n.reason,
-      })),
-      "gpt-4o",
+    // 오행·사격·발음오행·부족 기운을 그대로 넘겨, AI가 이 값들을 추측하지 않도록 한다.
+    const { map: detailMap, cost: detailCost } = await generateDetailedReason(
+      allForDetail,
+      { surname, lacking },
+    );
+
+    console.log(
+      `[ai-cost] stage=premium requestId=${requestId} krw=${(nameCost + detailCost).toFixed(2)} names=${allForDetail.length}`,
     );
 
     // ── DB: 무료 이름 행 UPDATE + 유료 이름 INSERT ─────────────
@@ -198,9 +197,8 @@ export async function POST(
         .from("name_candidates")
         .update({
           meaning_summary:      freeDetail?.summary ?? freeRichName.reason,
-          detailed_explanation: freeDetail
-            ? [freeDetail.summary, '', freeDetail.categories.map((c) => `[${c.title}]\n${c.description}`).join('\n\n'), '', freeDetail.detail?.trim() ?? '', '', freeDetail.tags.join(' ')].join('\n')
-            : '',
+          detailed_explanation: buildDetailedExplanation(freeRichName, freeDetail),
+          detail_body:          buildDetailBody(freeRichName, freeDetail),
           tags:       freeDetail?.tags       ?? [],
           categories: freeDetail?.categories ?? [],
         })

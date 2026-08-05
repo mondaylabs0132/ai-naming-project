@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import Footer from "@/components/layout/footer";
 import ResultPageView from "@/components/result/ResultPageView";
 import { createClient } from "@/lib/supabase/server";
+import { loginRedirect } from "@/lib/auth/redirect";
 
 export default async function MyPageResultDetail({
   params,
@@ -17,7 +18,7 @@ export default async function MyPageResultDetail({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/login?redirectTo=/mypage/results/${id}`);
+    redirect(loginRedirect(`/mypage/results/${id}`));
   }
 
   // 2. 소유권 — 본인 결과가 아니면 존재를 숨김(404)
@@ -32,7 +33,11 @@ export default async function MyPageResultDetail({
 
   return (
     <>
-      <ResultPageView requestId={id} userId={user.id} />
+      <ResultPageView
+        requestId={id}
+        userId={user.id}
+        detailBasePath={`/mypage/results/${id}/detail`}
+      />
       <Footer />
     </>
   );
