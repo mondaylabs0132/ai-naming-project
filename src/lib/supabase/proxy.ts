@@ -44,10 +44,16 @@ export async function updateSession(request: NextRequest) {
 
   const user = data?.claims;
 
-  // 로그인하지 않은 사용자가 마이 페이지에 접근하려고 하는 경우 로그인 페이지로 이동
-  if (!user && request.nextUrl.pathname.startsWith("/mypage")) {
+  // 로그인이 필요한 영역 — 미로그인 접근은 로그인 페이지로 보낸다.
+  // (account) 라우트 그룹에 화면을 추가하면 여기에도 경로를 더해야 한다.
+  const PROTECTED_PREFIXES = ["/mypage", "/bookmarks"];
+  const { pathname } = request.nextUrl;
+  const protectedPrefix = PROTECTED_PREFIXES.find((p) => pathname.startsWith(p));
+
+  if (!user && protectedPrefix) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirectTo", "/mypage");
+    // 인증 후 원래 보려던 화면으로 정확히 돌아가도록 전체 경로를 넘긴다.
+    loginUrl.searchParams.set("redirectTo", pathname);
 
     return NextResponse.redirect(loginUrl);
   }

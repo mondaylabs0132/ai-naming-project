@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Heart, Info, Share2, Star, Volume2 } from "lucide-react";
 
+import Link from "next/link";
+
+import { addBookmark, removeBookmark } from "@/lib/bookmarks/list";
 import type { NameDetailData } from "@/lib/result/name-detail";
 import { ohangKey, ohangLabel, scoreToLabel, scoreToStars } from "@/lib/result/score";
 
@@ -200,10 +203,35 @@ const LUCK_STYLE = {
   bad: { text: "凶", color: "#C62828", bg: "#FFEBEE" },
 } as const;
 
-export default function ResultDetailView({ detail }: { detail: NameDetailData }) {
+export default function ResultDetailView({
+  detail,
+  userId,
+}: {
+  detail: NameDetailData;
+  userId: string;
+}) {
   const router = useRouter();
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(detail.isFavorite);
+  const [isSaving, setIsSaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
+
+  // 보관함 담기/빼기 — 낙관적 반영 후 실패하면 되돌린다.
+  async function toggleSaved() {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    const next = !saved;
+    setSaved(next);
+
+    try {
+      if (next) await addBookmark(userId, detail.id);
+      else await removeBookmark(detail.id);
+    } catch {
+      setSaved(!next);
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   const stars = scoreToStars(detail.score);
   const label = scoreToLabel(detail.score);
@@ -252,14 +280,15 @@ export default function ResultDetailView({ detail }: { detail: NameDetailData })
         >
           이름 상세 분석
         </span>
-        <button
-          className="flex items-center gap-[5px] font-medium border border-[var(--color-primary)] text-[var(--color-primary)] px-3 py-[6px]"
+        {/* 담기는 하단 버튼이 맡고, 여기는 보관함으로 이동만 한다 */}
+        <Link
+          href="/bookmarks"
+          className="flex items-center gap-[5px] font-medium border border-[var(--color-primary)] text-[var(--color-primary)] px-3 py-[6px] shrink-0"
           style={{ fontSize: "12px", borderRadius: "var(--radius-pill)" }}
-          onClick={() => setSaved((v) => !v)}
         >
           <Heart size={13} fill={saved ? "var(--color-primary)" : "none"} />
           보관함
-        </button>
+        </Link>
       </header>
 
       {/* ── 페이지 콘텐츠 ── */}
@@ -663,10 +692,12 @@ export default function ResultDetailView({ detail }: { detail: NameDetailData })
             borderRadius: "var(--radius-xl)",
             fontSize: "15px",
           }}
-          onClick={() => setSaved((v) => !v)}
+          onClick={toggleSaved}
+          disabled={isSaving}
+          aria-pressed={saved}
         >
           <Heart size={16} fill={saved ? "white" : "none"} />
-          보관함에 담기
+          {saved ? "보관함에 담김" : "보관함에 담기"}
         </button>
       </div>
     </div>

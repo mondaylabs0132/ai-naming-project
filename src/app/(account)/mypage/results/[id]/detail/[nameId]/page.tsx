@@ -34,5 +34,5 @@ export default async function MyPageNameDetailPage({
   const detail = await fetchNameDetail(supabase, id, nameId);
   if (!detail) notFound();
 
-  return <ResultDetailView detail={detail} />;
+  return <ResultDetailView detail={detail} userId={user.id} />;
 }

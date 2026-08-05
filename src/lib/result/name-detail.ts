@@ -44,6 +44,8 @@ export type NameDetailData = {
   soundDetails: string[];
 
   detailBody: string; // AI 상세 해설 본문
+
+  isFavorite: boolean; // 로그인 유저가 이 이름을 보관함에 담아뒀는지
 };
 
 // 화면에 필요한 컬럼만 명시적으로 조회한다(select * 지양).
@@ -134,6 +136,15 @@ export async function fetchNameDetail(
   if (index === -1) return null;
 
   const row = rows[index];
+
+  // 보관함 담김 여부. RLS가 본인 행만 보여주므로 user_id 조건은 걸지 않는다.
+  // 실패해도 상세 화면 자체는 보여줘야 하므로 에러를 전파하지 않고 false로 둔다.
+  const { data: favorite } = await supabase
+    .from("name_favorites")
+    .select("name_candidate_id")
+    .eq("name_candidate_id", nameId)
+    .maybeSingle();
+
   const saju = Array.isArray(row.saju_summary) ? (row.saju_summary as string[]) : [];
   const hangul1 = (row.hangul1 as string) ?? "";
   const hangul2 = (row.hangul2 as string) ?? "";
@@ -175,5 +186,7 @@ export async function fetchNameDetail(
     // detail_body 도입 이전 행은 빈 값이므로 합본 문자열로 폴백한다.
     detailBody:
       ((row.detail_body as string) || (row.detailed_explanation as string)) ?? "",
+
+    isFavorite: Boolean(favorite),
   };
 }
