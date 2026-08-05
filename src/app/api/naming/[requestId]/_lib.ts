@@ -37,7 +37,8 @@ export type SurveyRow = {
   birth_month: number;
   birth_day: number | null;
   birth_time: string | null;
-  gender: '남자' | '여자';
+  // DB 기본값이 '모름'이라 두 값만으로는 실제를 표현하지 못한다.
+  gender: '남자' | '여자' | '모름';
   mood_keywords: string[];
   avoid_hangul: string[];
   // 설문에서 고른 기피 한자의 hanja.id 목록(최대 5개).
@@ -367,7 +368,7 @@ export async function callAI(
 }
 
 export async function generateNames(options: {
-  surname: string; gender: '남자' | '여자'; ohang: string[];
+  surname: string; gender: '남자' | '여자' | '모름'; ohang: string[];
   dolrimja?: string; model?: string; moodKeywords?: string[];
   avoidHanja?: string[];
 }): Promise<{ names: { hangul: string; hanja: string; reason: string }[]; cost: number }> {
@@ -530,13 +531,21 @@ ${nameList}
 // Free 전용 경량 AI 호출 — summary + tags만 생성
 export async function generateBriefDetail(
   name: { hangul: string; hanja1: string; hanja2: string; meaning1: string[]; meaning2: string[]; reason: string },
-  model = MODEL_BRIEF,
+  // 성별을 넘기지 않으면 AI가 한자 뜻만 보고 "소녀/소년"을 임의로 붙인다.
+  // 무료 결과는 결제 전환이 일어나는 화면이라 성별이 어긋나면 신뢰가 깨진다.
+  options: { gender?: '남자' | '여자' | '모름'; model?: string } = {},
 ): Promise<{ summary: string; tags: string[]; cost: number }> {
-  const prompt = `이름 ${name.hangul} (${name.hanja1}${name.hanja2}): ${name.hanja1}(${name.meaning1[0] ?? ''}) + ${name.hanja2}(${name.meaning2[0] ?? ''}) - ${name.reason}
+  const { gender, model = MODEL_BRIEF } = options;
+  const genderText =
+    gender === '남자' || gender === '여자'
+      ? `\n\n이 아이는 ${gender}입니다. 성별과 어긋나는 표현을 쓰지 마세요.`
+      : '\n\n성별은 알 수 없습니다. 성별을 단정하는 표현("소년", "소녀" 등)을 쓰지 마세요.';
+
+  const prompt = `이름 ${name.hangul} (${name.hanja1}${name.hanja2}): ${name.hanja1}(${name.meaning1[0] ?? ''}) + ${name.hanja2}(${name.meaning2[0] ?? ''}) - ${name.reason}${genderText}
 
 아래 두 가지만 JSON으로 작성하세요.
 - summary: 20자 내외 한 줄 요약 (따뜻하고 자연스럽게, 순한글)
-- tags: #태그 4개 배열
+- tags: #태그 4개 배열 (이름 자체나 한자를 태그로 쓰지 말 것)
 
 {"summary":"따뜻한 햇살처럼 밝고 온화한 아이","tags":["#태그1","#태그2","#태그3","#태그4"]}`;
 
@@ -544,7 +553,13 @@ export async function generateBriefDetail(
   try {
     const r = JSON.parse(text.replace(/```json|```/g, '').trim()) as { summary: string; tags: string[] };
     const isValidTag = (t: string) => /^#[가-힣a-zA-Z0-9]{1,8}$/.test(t);
-    const tags = (r.tags ?? []).map((t) => { const s = t.trim(); return s.startsWith('#') ? s : `#${s}`; }).filter(isValidTag);
+    // "#소현"처럼 이름을 그대로 옮긴 태그는 정보가 없다. 프롬프트로도 막지만
+    // 지시를 어기는 경우가 있어 코드에서도 걸러낸다.
+    const isSelfReferential = (t: string) =>
+      t === `#${name.hangul}` || t === `#${name.hanja1}${name.hanja2}`;
+    const tags = (r.tags ?? [])
+      .map((t) => { const s = t.trim(); return s.startsWith('#') ? s : `#${s}`; })
+      .filter((t) => isValidTag(t) && !isSelfReferential(t));
     return { summary: r.summary ?? name.reason, tags, cost };
   } catch {
     // 폴백(reason 그대로 사용)이 조용히 동작하면 태그 없는 결과가 왜 나왔는지 추적할 수 없다.
@@ -602,10 +617,17 @@ export async function collectNames(params: {
   const avoidChars = new Set([...(survey.avoid_hangul ?? []), ...siblingGivenChars]);
 
   // 기피 한자는 id로 저장돼 있어 글자로 풀어야 비교할 수 있다.
-  // hanja 테이블은 글자가 유일하므로 id↔글자가 1:1이다.
   // 재시도해도 값이 같으니 루프 밖에서 한 번만 조회한다.
+  //
+  // NFKC로 정규화해서 비교하는 이유:
+  // hanja 테이블에는 눈에 같아 보이지만 코드포인트가 다른 행이 282쌍 있다.
+  // (호환 한자 U+F9xx vs 통합 한자 U+4Exx — 예: 不 U+F967 / U+4E0D)
+  // 검색 RPC는 is_common 우선으로 중복을 걸러 사용자에게 호환 한자를 보여주는데,
+  // AI는 통합 한자를 출력한다. 원문 그대로 비교하면 서로 다른 글자로 취급돼
+  // 사용자가 배제한 글자가 결과에 그대로 나온다.
   const avoidHanjaIds = survey.avoid_hanja_id ?? [];
   const avoidHanjaChars = new Set<string>();
+  const avoidHanjaDisplay: string[] = [];
   if (avoidHanjaIds.length > 0) {
     const { data, error } = await supabase
       .from('hanja')
@@ -618,7 +640,11 @@ export async function collectNames(params: {
       console.error(`[collectNames] 기피 한자 조회 실패: ${error.message}`);
       throw new Error('기피 한자 정보를 불러오지 못했습니다.');
     }
-    for (const row of data ?? []) avoidHanjaChars.add((row as { hanja: string }).hanja);
+    for (const row of data ?? []) {
+      const char = (row as { hanja: string }).hanja;
+      avoidHanjaChars.add(char.normalize('NFKC'));
+      avoidHanjaDisplay.push(char);
+    }
   }
 
   const sungStrokes = [surname.won_stroke];
@@ -632,7 +658,8 @@ export async function collectNames(params: {
       dolrimja: survey.generation_name ?? undefined,
       model,
       moodKeywords: safeMoods,
-      avoidHanja: [...avoidHanjaChars],
+      // 프롬프트에는 사용자가 화면에서 본 글자 그대로 보여준다.
+      avoidHanja: avoidHanjaDisplay,
     });
     totalCost += cost;
 
@@ -654,7 +681,11 @@ export async function collectNames(params: {
       if (chars.length !== 2 || chars[0] === chars[1]) return false;
       if (avoidChars.size > 0 && chars.some(c => avoidChars.has(c))) return false;
       // 사용자가 배제한 한자가 한 글자라도 있으면 탈락시킨다.
-      if (avoidHanjaChars.size > 0 && [...(n.hanja ?? '')].some(c => avoidHanjaChars.has(c))) {
+      // 후보 쪽도 같은 방식으로 정규화해야 코드포인트 차이를 흡수할 수 있다.
+      if (
+        avoidHanjaChars.size > 0 &&
+        [...(n.hanja ?? '')].some((c) => avoidHanjaChars.has(c.normalize('NFKC')))
+      ) {
         avoidedByHanja++;
         return false;
       }
