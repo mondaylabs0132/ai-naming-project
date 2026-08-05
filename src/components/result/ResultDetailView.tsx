@@ -3,54 +3,10 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  ArrowLeft,
-  Heart,
-  Info,
-  Share2,
-  Star,
-  Volume2,
-} from "lucide-react";
+import { ArrowLeft, Heart, Info, Share2, Star, Volume2 } from "lucide-react";
 
-const nameDetail = {
-  rank: 1,
-  name: "하온",
-  hanja: "河溫",
-  badge: "추천도 매우 높음",
-  desc: "따뜻한 햇살처럼 밝고 온화한 아이",
-  strokes: "10획",
-  elements: "수(水) + 화(火)",
-  hashtags: ["따뜻한", "온화한", "밝은에너지", "조화로운성장"],
-  score: 98,
-  rank_percent: "상위 2%",
-  hanja_details: [
-    {
-      char: "河",
-      title: "강 이름, 넓고 깊은",
-      tags: ["물", "흐름", "포용"],
-      desc: "넓고 깊은 강처럼 포용력이 크고 끊임없이 성장하는 의미를 담고 있어요.",
-    },
-    {
-      char: "溫",
-      title: "따뜻할 온, 온화할 온",
-      tags: ["따뜻함", "온화함", "사랑"],
-      desc: "따뜻한 마음과 온화한 성품으로 주변을 편안하게 만드는 의미를 담고 있어요.",
-    },
-  ],
-  oheng: [
-    { name: "수(水)", color: "#5B8DEF", barColor: "#7C6FCD", traits: "지혜, 용통성, 감성", pct: 80 },
-    { name: "화(火)", color: "#EF5B5B", barColor: "#EF5B5B", traits: "열정, 밝음, 따뜻함", pct: 80 },
-    { name: "목(木)", color: "#4CAF50", barColor: "#4CAF50", traits: "성장, 발전, 생명력", pct: 40 },
-    { name: "금(金)", color: "#9E9E9E", barColor: "#9E9E9E", traits: "결단력, 집중력, 완성", pct: 30 },
-    { name: "토(土)", color: "#FFC107", barColor: "#FFC107", traits: "안정, 신뢰, 중심", pct: 40 },
-  ],
-  fortune_periods: [
-    { age: "24세 ~ 28세", desc: "학업운·성장운·귀인운 상승", level: "최고" },
-    { age: "33세 ~ 37세", desc: "커리어·재물운 상승", level: "좋음" },
-    { age: "42세 ~ 46세", desc: "명예운·안정운 상승", level: "좋음" },
-    { age: "51세 ~ 55세", desc: "가정운·건강운 상승", level: "좋음" },
-  ],
-};
+import type { NameDetailData } from "@/lib/result/name-detail";
+import { ohangKey, ohangLabel, scoreToLabel, scoreToStars } from "@/lib/result/score";
 
 /* ── 오행 관계도 SVG (상생/상극 포함) ── */
 const OHENG_NODES = [
@@ -62,6 +18,15 @@ const OHENG_NODES = [
 ];
 
 const NODE_MAP = Object.fromEntries(OHENG_NODES.map((n) => [n.key, n]));
+
+// 오행 한자 → 관계도 노드 색상. 발음오행 뱃지에서도 같은 색을 쓴다.
+const OHANG_COLOR: Record<string, string> = {
+  木: "#4CAF50",
+  火: "#EF5B5B",
+  土: "#FFC107",
+  金: "#9E9E9E",
+  水: "#5B8DEF",
+};
 
 // 상생: 목→화→토→금→수→목
 const SANGSAENG: [string, string][] = [
@@ -174,39 +139,98 @@ function OhengDiagram({ active }: { active: string[] }) {
   );
 }
 
-/* ── 대운 흐름 SVG ── */
-function FortuneChart() {
-  const pts: [number, number][] = [
-    [20, 100],
-    [80, 88],
-    [140, 70],
-    [200, 45],
-    [260, 20],
-  ];
-  const polyline = pts.map((p) => p.join(",")).join(" ");
+/* ── 별점 (0.5 단위) ── */
+function StarRating({ stars }: { stars: number }) {
+  const row = (fill: string) => (
+    <div className="flex gap-[2px]">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Star key={i} size={11} fill={fill} color={fill} className="shrink-0" />
+      ))}
+    </div>
+  );
 
   return (
-    <svg viewBox="0 0 280 120" width="100%" height={120}>
-      {[20, 45, 70, 95].map((y) => (
-        <line key={y} x1={10} y1={y} x2={270} y2={y} stroke="#F0EEF8" strokeWidth={1} />
-      ))}
-      <polyline points={polyline} fill="none" stroke="#7C6FCD" strokeWidth={2.5} strokeLinejoin="round" />
-      {pts.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={4} fill="#7C6FCD" />
-      ))}
-      {["10대", "20대", "30대", "40대", "50대+"].map((label, i) => (
-        <text key={label} x={pts[i][0]} y={118} textAnchor="middle" fontSize={8} fill="#9E9E9E">
-          {label}
-        </text>
-      ))}
-    </svg>
+    <div className="relative inline-flex" aria-label={`5점 만점에 ${stars}점`}>
+      {row("#E4E1F0")}
+      <div
+        className="absolute inset-y-0 left-0 overflow-hidden"
+        style={{ width: `${(stars / 5) * 100}%` }}
+        aria-hidden="true"
+      >
+        {row("#FFBA00")}
+      </div>
+    </div>
   );
 }
 
-export default function ResultDetailView() {
+/* ── 카드 껍데기 ── */
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="bg-[var(--color-surface)] shadow-[var(--shadow-card)] p-5"
+      style={{ borderRadius: "var(--radius-xl)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardTitle({ title, desc }: { title: string; desc?: string }) {
+  return (
+    <>
+      <h2
+        className="font-bold text-[var(--color-ink)]"
+        style={{ fontSize: "16px", marginBottom: desc ? "2px" : "16px" }}
+      >
+        {title}
+      </h2>
+      {desc && (
+        <p className="text-[var(--color-ink-muted)] mb-4" style={{ fontSize: "12px" }}>
+          {desc}
+        </p>
+      )}
+    </>
+  );
+}
+
+// 사격 길흉 표기
+const LUCK_STYLE = {
+  good: { text: "吉", color: "#388E3C", bg: "#E8F5E9" },
+  mixed: { text: "中", color: "#B08900", bg: "#FFF8E1" },
+  bad: { text: "凶", color: "#C62828", bg: "#FFEBEE" },
+} as const;
+
+export default function ResultDetailView({ detail }: { detail: NameDetailData }) {
   const router = useRouter();
   const [saved, setSaved] = useState(false);
-  const d = nameDetail;
+  const [expanded, setExpanded] = useState(false);
+
+  const stars = scoreToStars(detail.score);
+  const label = scoreToLabel(detail.score);
+
+  // 이름의 두 글자 오행 — 관계도에서 강조할 노드
+  const activeOhang = [ohangKey(detail.ohang1), ohangKey(detail.ohang2)].filter(Boolean);
+  const elementsText = [ohangLabel(detail.ohang1), ohangLabel(detail.ohang2)]
+    .filter(Boolean)
+    .join(" + ");
+
+  // 발음오행: 성을 포함한 전체 이름 글자와 오행 목록이 같은 순서로 대응한다.
+  const soundChars = [...detail.fullHangul];
+
+  const hanjaItems = [
+    {
+      char: detail.hanja1,
+      reading: detail.hangul1,
+      meanings: detail.meanings1,
+      ohang: detail.ohang1,
+    },
+    {
+      char: detail.hanja2,
+      reading: detail.hangul2,
+      meanings: detail.meanings2,
+      ohang: detail.ohang2,
+    },
+  ].filter((h) => h.char);
 
   return (
     <div className="flex flex-col">
@@ -218,6 +242,7 @@ export default function ResultDetailView() {
         <button
           onClick={() => router.back()}
           className="flex items-center justify-center w-9 h-9 -ml-1 shrink-0"
+          aria-label="뒤로 가기"
         >
           <ArrowLeft size={22} className="text-[var(--color-ink)]" />
         </button>
@@ -239,14 +264,12 @@ export default function ResultDetailView() {
 
       {/* ── 페이지 콘텐츠 ── */}
       <div className="pb-36 px-4 pt-4 flex flex-col gap-4">
-
-        {/* ── 섹션 1. 히어로 카드 ── */}
+        {/* ── A. 히어로 카드 ── */}
         <div
           className="relative bg-[var(--color-surface)] shadow-[var(--shadow-card)] p-5"
           style={{ borderRadius: "var(--radius-xl)" }}
         >
           <div className="flex gap-2 items-stretch">
-            {/* 열 1: 텍스트 콘텐츠 (좌측) */}
             <div className="flex-1 min-w-0 flex flex-col justify-center">
               {/* 순위 뱃지 */}
               <div
@@ -257,20 +280,20 @@ export default function ResultDetailView() {
                   className="font-bold text-[var(--color-primary)]"
                   style={{ fontSize: "11px" }}
                 >
-                  {d.rank}
+                  {detail.rank}
                 </span>
               </div>
 
-              {/* 이름 + 한자 + 발음 */}
+              {/* 이름 + 한자 */}
               <div className="flex items-baseline gap-1 mb-1 flex-wrap">
                 <span
                   className="font-extrabold text-[var(--color-ink)]"
                   style={{ fontSize: "28px", lineHeight: 1.1 }}
                 >
-                  {d.name}
+                  {detail.fullHangul}
                 </span>
                 <span className="text-[var(--color-ink-muted)]" style={{ fontSize: "12px" }}>
-                  ({d.hanja})
+                  ({detail.fullHanja})
                 </span>
                 <Volume2 size={13} className="text-[var(--color-primary)] shrink-0" />
               </div>
@@ -284,40 +307,41 @@ export default function ResultDetailView() {
                   borderRadius: "var(--radius-pill)",
                 }}
               >
-                {d.badge}
+                {label}
               </span>
 
-              {/* 설명 */}
-              <p className="text-[var(--color-ink-muted)] mb-1 leading-[1.4]" style={{ fontSize: "11px" }}>
-                {d.desc}
+              {/* 한줄 요약 */}
+              <p
+                className="text-[var(--color-ink-muted)] mb-1 leading-[1.4]"
+                style={{ fontSize: "11px" }}
+              >
+                {detail.summary}
               </p>
 
               {/* 획수/오행 */}
               <p className="text-[var(--color-ink-muted)] mb-1" style={{ fontSize: "10px" }}>
-                {d.strokes} | {d.elements}
+                {detail.totalStrokes}획{elementsText && ` | ${elementsText}`}
               </p>
 
               {/* 해시태그 */}
               <div className="flex flex-wrap gap-1">
-                {d.hashtags.map((tag) => (
-                  <span key={tag} className="text-[var(--color-ink-muted)]" style={{ fontSize: "10px" }}>
-                    #{tag}
+                {detail.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[var(--color-ink-muted)]"
+                    style={{ fontSize: "10px" }}
+                  >
+                    {tag}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* 열 2: 이미지 (가운데) */}
             <div className="flex items-center justify-center shrink-0">
-              <Image
-                src="/assets/premium/glass_star.png"
-                alt="별"
-                width={110}
-                height={110}
-              />
+              <Image src="/assets/premium/glass_star.png" alt="" width={110} height={110} />
             </div>
 
-            {/* 열 3: 종합 점수 박스 (우측 끝) */}
+            {/* 종합 점수 */}
             <div
               className="flex flex-col items-center justify-center gap-[5px] px-2 py-3 shrink-0"
               style={{
@@ -333,211 +357,285 @@ export default function ResultDetailView() {
                 className="font-extrabold text-[var(--color-primary)]"
                 style={{ fontSize: "22px", lineHeight: 1 }}
               >
-                {d.score}점
+                {detail.score}점
               </span>
-              <div className="flex gap-[2px]">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} size={11} fill="#FFBA00" color="#FFBA00" />
-                ))}
-              </div>
-              <span className="font-bold text-[var(--color-primary)]" style={{ fontSize: "12px" }}>
-                {d.rank_percent}
-              </span>
+              <StarRating stars={stars} />
               <span
-                className="text-[var(--color-ink-muted)] text-center leading-[1.3]"
-                style={{ fontSize: "9px" }}
-              >
-                매우 좋은 이름이에요!
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── 섹션 2. 이름 의미와 유래 ── */}
-        <div
-          className="bg-[var(--color-surface)] shadow-[var(--shadow-card)] p-5"
-          style={{ borderRadius: "var(--radius-xl)" }}
-        >
-          <h2
-            className="font-bold text-[var(--color-ink)] mb-4"
-            style={{ fontSize: "16px" }}
-          >
-            이름 의미와 유래
-          </h2>
-
-          <div className="flex flex-col divide-y divide-[var(--color-divider)]">
-            {d.hanja_details.map((h) => (
-              <div key={h.char} className="flex gap-3 py-4 first:pt-0 last:pb-0">
-                <div
-                  className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center"
-                  style={{ background: "var(--color-primary-pale)" }}
-                >
-                  <span
-                    className="font-bold text-[var(--color-primary)]"
-                    style={{ fontSize: "22px" }}
-                  >
-                    {h.char}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[var(--color-ink)] mb-1" style={{ fontSize: "14px" }}>
-                    {h.title}
-                  </p>
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {h.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[var(--color-ink-muted)] px-2 py-[2px]"
-                        style={{
-                          fontSize: "11px",
-                          background: "var(--color-surface-section)",
-                          borderRadius: "var(--radius-pill)",
-                        }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[var(--color-ink-muted)] leading-[1.6]" style={{ fontSize: "13px" }}>
-                    {h.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── 섹션 3. 오행 분석 ── */}
-        <div
-          className="bg-[var(--color-surface)] shadow-[var(--shadow-card)] p-5"
-          style={{ borderRadius: "var(--radius-xl)" }}
-        >
-          <h2
-            className="font-bold text-[var(--color-ink)] mb-4"
-            style={{ fontSize: "16px" }}
-          >
-            이름 오행 분석
-          </h2>
-
-          <div className="flex gap-3 items-start">
-            <div className="shrink-0">
-              <OhengDiagram active={["수", "화"]} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p
-                className="font-bold text-[var(--color-primary)] mb-1"
-                style={{ fontSize: "14px" }}
-              >
-                {d.elements}
-              </p>
-              <p
-                className="text-[var(--color-ink-muted)] leading-[1.5] mb-3"
+                className="font-bold text-[var(--color-primary)]"
                 style={{ fontSize: "12px" }}
               >
-                지혜로운 물이 따뜻한 불을 만나 조화를 이루는 좋은 오행 구성이에요.
-              </p>
-              <div className="flex flex-col gap-2">
-                {d.oheng.map((o) => (
-                  <div key={o.name}>
-                    <div className="flex items-center gap-1 mb-[3px]">
-                      <div
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{ background: o.color }}
-                      />
-                      <span className="text-[var(--color-ink-muted)]" style={{ fontSize: "11px" }}>
-                        {o.name}
-                      </span>
-                      <span className="text-[var(--color-ink-muted)] ml-auto" style={{ fontSize: "10px" }}>
-                        {o.pct}%
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[var(--color-surface-section)] overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${o.pct}%`, background: o.barColor }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                {detail.totalCount}개 중 {detail.rank}위
+              </span>
             </div>
           </div>
         </div>
 
-        {/* ── 섹션 4. 대운·길운 분석 ── */}
-        <div
-          className="bg-[var(--color-surface)] shadow-[var(--shadow-card)] p-5"
-          style={{ borderRadius: "var(--radius-xl)" }}
-        >
-          <h2
-            className="font-bold text-[var(--color-ink)] mb-[2px]"
-            style={{ fontSize: "16px" }}
-          >
-            대운·길운 분석
-          </h2>
-          <p className="text-[var(--color-ink-muted)] mb-4" style={{ fontSize: "12px" }}>
-            평생 운세의 흐름과 좋은 영향을 주는 시기
-          </p>
-
-          <div className="mb-4">
-            <p className="font-semibold text-[var(--color-ink)] mb-2" style={{ fontSize: "13px" }}>
-              대운 흐름
-            </p>
-            <FortuneChart />
-            <p className="text-[var(--color-ink-muted)] mt-1" style={{ fontSize: "11px" }}>
-              30대 후반부터 안정과 성장이 크게 상승하는 운세에요.
-            </p>
-          </div>
-
-          <div className="mb-4">
-            <p className="font-semibold text-[var(--color-ink)] mb-2" style={{ fontSize: "13px" }}>
-              길운 시기
-            </p>
+        {/* ── B. 이 이름에 담긴 뜻 (AI 카테고리 3장) ── */}
+        {detail.categories.length > 0 && (
+          <Card>
+            <CardTitle title="이 이름에 담긴 뜻" />
             <div className="flex flex-col gap-2">
-              {d.fortune_periods.map((fp) => (
+              {detail.categories.map((c) => (
                 <div
-                  key={fp.age}
-                  className="flex items-center gap-2 px-3 py-[10px]"
+                  key={c.title}
+                  className="px-3 py-3"
                   style={{
                     background: "var(--color-surface-section)",
-                    borderRadius: "var(--radius-sm)",
+                    borderRadius: "var(--radius-md)",
                   }}
                 >
-                  <span
-                    className="font-semibold text-[var(--color-ink)] shrink-0"
-                    style={{ fontSize: "13px", minWidth: "88px" }}
+                  <p
+                    className="font-semibold text-[var(--color-ink)] mb-1"
+                    style={{ fontSize: "13px" }}
                   >
-                    {fp.age}
-                  </span>
-                  <span className="flex-1 text-[var(--color-ink-muted)]" style={{ fontSize: "12px" }}>
-                    {fp.desc}
-                  </span>
-                  <span
-                    className="shrink-0 font-semibold px-2 py-[2px]"
-                    style={{
-                      fontSize: "11px",
-                      borderRadius: "var(--radius-pill)",
-                      background: fp.level === "최고" ? "var(--color-primary-pale)" : "#E8F5E9",
-                      color: fp.level === "최고" ? "var(--color-primary)" : "#388E3C",
-                    }}
+                    {c.title}
+                  </p>
+                  <p
+                    className="text-[var(--color-ink-muted)] leading-[1.6]"
+                    style={{ fontSize: "12px" }}
                   >
-                    {fp.level}
-                  </span>
+                    {c.description}
+                  </p>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
+        )}
 
-          <div
-            className="flex gap-2 items-start px-3 py-3"
-            style={{ background: "var(--color-primary-pale)", borderRadius: "var(--radius-md)" }}
-          >
-            <Info size={14} className="text-[var(--color-primary)] shrink-0 mt-[1px]" />
-            <p className="text-[var(--color-ink-muted)] leading-[1.6]" style={{ fontSize: "12px" }}>
-              전반적으로 안정적인 흐름 속에서 중반 이후 큰 성취와 풍요가 기대되는 운세입니다.
+        {/* ── C. 한자 풀이 ── */}
+        {hanjaItems.length > 0 && (
+          <Card>
+            <CardTitle title="이름 의미와 유래" />
+            <div className="flex flex-col divide-y divide-[var(--color-divider)]">
+              {hanjaItems.map((h) => (
+                <div key={h.char} className="flex gap-3 py-4 first:pt-0 last:pb-0">
+                  <div
+                    className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center"
+                    style={{ background: "var(--color-primary-pale)" }}
+                  >
+                    <span
+                      className="font-bold text-[var(--color-primary)]"
+                      style={{ fontSize: "22px" }}
+                    >
+                      {h.char}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="font-semibold text-[var(--color-ink)] mb-1"
+                      style={{ fontSize: "14px" }}
+                    >
+                      {h.meanings[0] ?? h.reading}
+                    </p>
+                    {/* 한자 사전에 등재된 나머지 훈(訓)까지 모두 보여준다 */}
+                    <div className="flex flex-wrap gap-1">
+                      {h.meanings.slice(1).map((m) => (
+                        <span
+                          key={m}
+                          className="text-[var(--color-ink-muted)] px-2 py-[2px]"
+                          style={{
+                            fontSize: "11px",
+                            background: "var(--color-surface-section)",
+                            borderRadius: "var(--radius-pill)",
+                          }}
+                        >
+                          {m}
+                        </span>
+                      ))}
+                    </div>
+                    {h.ohang && (
+                      <p
+                        className="text-[var(--color-ink-muted)] mt-2"
+                        style={{ fontSize: "11px" }}
+                      >
+                        오행 {ohangLabel(h.ohang)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* ── D+E. 사주 궁합 & 오행 조합 ── */}
+        {(detail.sajuSummary || detail.ohangSummary) && (
+          <Card>
+            <CardTitle title="사주와 오행 분석" desc="타고난 기운과 이름이 어떻게 어울리는지" />
+            <div className="flex gap-3 items-start">
+              <div className="shrink-0">
+                <OhengDiagram active={activeOhang} />
+              </div>
+              <div className="flex-1 min-w-0">
+                {elementsText && (
+                  <p
+                    className="font-bold text-[var(--color-primary)] mb-1"
+                    style={{ fontSize: "14px" }}
+                  >
+                    {elementsText}
+                  </p>
+                )}
+                {detail.ohangSummary && (
+                  <p
+                    className="text-[var(--color-ink-muted)] leading-[1.6] mb-3"
+                    style={{ fontSize: "12px" }}
+                  >
+                    {detail.ohangSummary}
+                  </p>
+                )}
+                {detail.sajuSummary && (
+                  <div
+                    className="flex gap-2 items-start px-3 py-3"
+                    style={{
+                      background: "var(--color-primary-pale)",
+                      borderRadius: "var(--radius-md)",
+                    }}
+                  >
+                    <Info
+                      size={14}
+                      className="text-[var(--color-primary)] shrink-0 mt-[1px]"
+                    />
+                    <p
+                      className="text-[var(--color-ink-muted)] leading-[1.6]"
+                      style={{ fontSize: "12px" }}
+                    >
+                      {detail.sajuSummary}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* ── F. 발음 오행 ── */}
+        {detail.soundOhangList.length > 0 && (
+          <Card>
+            <CardTitle
+              title="발음 오행"
+              desc="이름을 소리 내어 불렀을 때 기운의 흐름"
+            />
+            <div className="flex items-center gap-1 flex-wrap mb-3">
+              {soundChars.map((char, i) => {
+                const ohang = detail.soundOhangList[i];
+                const color = OHANG_COLOR[ohang] ?? "#9E9E9E";
+                return (
+                  <div key={`${char}-${i}`} className="flex items-center gap-1">
+                    {i > 0 && (
+                      <span
+                        className="text-[var(--color-ink-muted)]"
+                        style={{ fontSize: "12px" }}
+                      >
+                        →
+                      </span>
+                    )}
+                    <div
+                      className="flex flex-col items-center justify-center w-11 h-11 rounded-full"
+                      style={{ background: `${color}26`, border: `1.5px solid ${color}` }}
+                    >
+                      <span
+                        className="font-bold text-[var(--color-ink)]"
+                        style={{ fontSize: "15px", lineHeight: 1.1 }}
+                      >
+                        {char}
+                      </span>
+                      <span style={{ fontSize: "9px", color }}>{ohang ?? "?"}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex flex-col gap-1">
+              {detail.soundDetails.map((line, i) => (
+                <p
+                  key={`${line}-${i}`}
+                  className="text-[var(--color-ink-muted)]"
+                  style={{ fontSize: "12px" }}
+                >
+                  {line}
+                </p>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* ── G. 수리(획수) 분석 ── */}
+        {detail.grids.length > 0 && (
+          <Card>
+            <CardTitle title="수리 분석" desc="이름의 획수가 만드는 다섯 가지 격" />
+            <div className="flex flex-col gap-2">
+              {detail.grids.map((g) => {
+                const style = LUCK_STYLE[g.luck] ?? LUCK_STYLE.mixed;
+                return (
+                  <div
+                    key={g.label}
+                    className="flex items-center gap-2 px-3 py-[10px]"
+                    style={{
+                      background: "var(--color-surface-section)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  >
+                    <span
+                      className="font-semibold text-[var(--color-ink)] shrink-0"
+                      style={{ fontSize: "13px", minWidth: "58px" }}
+                    >
+                      {g.label}
+                    </span>
+                    <span
+                      className="text-[var(--color-ink-muted)] shrink-0"
+                      style={{ fontSize: "12px", minWidth: "38px" }}
+                    >
+                      {g.stroke}획
+                    </span>
+                    <span
+                      className="flex-1 text-[var(--color-ink-muted)]"
+                      style={{ fontSize: "12px" }}
+                    >
+                      {g.description}
+                    </span>
+                    <span
+                      className="shrink-0 font-semibold px-2 py-[2px]"
+                      style={{
+                        fontSize: "11px",
+                        borderRadius: "var(--radius-pill)",
+                        background: style.bg,
+                        color: style.color,
+                      }}
+                    >
+                      {style.text}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {/* ── H. 상세 해설 ── */}
+        {detail.detailBody && (
+          <Card>
+            <CardTitle title="이름 이야기" />
+            <p
+              className="text-[var(--color-ink-muted)] leading-[1.8] whitespace-pre-line"
+              style={{
+                fontSize: "13px",
+                display: expanded ? undefined : "-webkit-box",
+                WebkitLineClamp: expanded ? undefined : 8,
+                WebkitBoxOrient: expanded ? undefined : "vertical",
+                overflow: expanded ? undefined : "hidden",
+              }}
+            >
+              {detail.detailBody}
             </p>
-          </div>
-        </div>
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-3 font-semibold text-[var(--color-primary)]"
+              style={{ fontSize: "13px" }}
+            >
+              {expanded ? "접기" : "더 보기"}
+            </button>
+          </Card>
+        )}
       </div>
 
       {/* ── 하단 고정 버튼 ── */}

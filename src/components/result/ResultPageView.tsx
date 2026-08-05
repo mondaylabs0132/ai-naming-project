@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { scoreToLabel, scoreToStars } from "@/lib/result/score";
 import Link from "next/link";
 
 // name_candidates 한 행을 화면 표시용으로 매핑한 형태.
@@ -27,18 +28,6 @@ export type ResultName = {
   desc: string; // meaning_summary
   tags: string[];
 };
-
-// score는 100점 만점. 별점 UI(5개)로 보여주기 위해 0~5(0.5 단위)로 환산.
-function scoreToStars(score: number): number {
-  const stars = Math.round(score / 10) / 2; // score/20 을 0.5 단위로 반올림
-  return Math.max(0, Math.min(5, stars));
-}
-
-function scoreToLabel(score: number): string {
-  if (score >= 90) return "추천도 매우 높음";
-  if (score >= 70) return "추천도 높음";
-  return "추천도 보통";
-}
 
 const STATS = [
   {
@@ -64,9 +53,13 @@ const STATS = [
 export default function ResultPageView({
   requestId,
   userId,
+  // 이름 상세로 가는 경로. 결제 직후 흐름과 마이페이지 재열람 흐름의 URL이 다르므로
+  // 목록을 공유하되 링크 베이스만 주입받는다.
+  detailBasePath = `/upgrade/${requestId}/result`,
 }: {
   requestId: string;
   userId: string;
+  detailBasePath?: string;
 }) {
   const [activeSort, setActiveSort] = useState<"추천도" | "가나다">("추천도");
   const [names, setNames] = useState<ResultName[]>([]);
@@ -426,7 +419,7 @@ export default function ResultPageView({
                     </span>
                   </button>
                   <Link
-                    href={`/upgrade/${requestId}/result/${item.id}`}
+                    href={`${detailBasePath}/${item.id}`}
                     className="flex items-end justify-center gap-[2px] text-primary min-h-[44px] pb-1"
                   >
                     <span className="font-medium whitespace-nowrap text-[10px] min-[376px]:text-nav">

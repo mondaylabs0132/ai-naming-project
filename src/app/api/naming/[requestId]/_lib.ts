@@ -189,6 +189,21 @@ reason은 순한글로만 작성하세요. 영어 혼용 금지.
 같은 글자를 두 번 쓰는 이름 제외 (예: 준준, 민민 등).
 추천 한자는 일상적으로 널리 알려진 인명용 한자만 사용하세요. 생소하거나 희귀한 한자는 제외하세요.`;
 
+// 단계별 모델. 환경변수로 덮어쓸 수 있게 해서 교체·비교에 코드 수정이 필요 없도록 한다.
+//
+// 이름 후보 생성은 창작이 아니라 "많이 뽑고 코드로 거르는" 작업이다.
+// 사격·오행·블랙리스트·중복 검증을 전부 collectNames가 하므로 저가 모델로 충분하다.
+// 반면 유료 상세 해설은 그 자체가 판매 상품이므로 상위 모델을 유지한다.
+// 한 번의 호출로 요청할 이름 후보 수와 그에 맞춘 출력 상한.
+// 항목 1건이 약 90토큰이므로 둘은 항상 함께 움직여야 한다.
+// 개수를 늘릴 때 상한을 안 올리면 응답이 잘리고, 잘린 JSON은 파싱에 실패해 0건이 된다.
+export const NAMES_PER_CALL = 60;
+const NAMES_MAX_TOKENS = 6000;
+
+export const MODEL_NAME_GEN = process.env.AI_MODEL_NAME_GEN ?? 'gpt-4o-mini';
+export const MODEL_BRIEF    = process.env.AI_MODEL_BRIEF    ?? 'gpt-4o-mini';
+export const MODEL_DETAIL   = process.env.AI_MODEL_DETAIL   ?? 'gpt-4o';
+
 const MODEL_RATES: Record<string, [number, number]> = {
   'gpt-4o':                    [2.5,  10],
   'gpt-4o-mini':               [0.15, 0.60],
@@ -352,14 +367,14 @@ export async function generateNames(options: {
   surname: string; gender: '남자' | '여자'; ohang: string[];
   dolrimja?: string; model?: string; moodKeywords?: string[];
 }): Promise<{ names: { hangul: string; hanja: string; reason: string }[]; cost: number }> {
-  const model = options.model ?? 'gpt-4o';
+  const model = options.model ?? MODEL_NAME_GEN;
   const dolrimjaText = options.dolrimja ? `돌림자: "${options.dolrimja}" 반드시 포함` : '';
   const moodText = options.moodKeywords?.length ? `분위기: ${options.moodKeywords.join(', ')}` : '';
   const prompt = `성씨: ${options.surname} | 성별: ${options.gender} | 부족한 오행: ${options.ohang.join('/')} ${dolrimjaText} ${moodText}
 
 아래 조건을 반드시 지켜주세요:
 1. 이름은 성씨 제외 두 글자만 출력 (예: 성씨가 박이면 "준서"만, "박준서" 절대 금지)
-2. 두 글자 이름 90개 생성
+2. 두 글자 이름 ${NAMES_PER_CALL}개 생성
 3. 다양한 이름 생성 (비슷한 이름 반복 금지)
 
 출력형식:
@@ -367,30 +382,78 @@ export async function generateNames(options: {
 
 예시: {"hangul":"서윤","hanja":"瑞潤","reason":"상서로운 기운과 윤택함을 지닌 덕망 있는 인재"}`;
 
-  const { text, cost } = await callAI(model, SYSTEM_PROMPT, prompt, 4000);
+  const { text, cost } = await callAI(model, SYSTEM_PROMPT, prompt, NAMES_MAX_TOKENS);
   try {
     const result = JSON.parse(text.replace(/```json|```/g, '').trim());
     return { names: Array.isArray(result.names) ? result.names : [], cost };
   } catch {
+    // 대부분 max_tokens 초과로 응답이 잘린 경우다. 앞부분만 남겨 원인을 판별할 수 있게 한다.
+    console.error(
+      `[generateNames] JSON 파싱 실패 (model=${model}, 길이=${text.length}): ${text.slice(0, 200)}`,
+    );
     return { names: [], cost };
   }
 }
 
 export async function generateDetailedReason(
-  names: { hangul: string; hanja1: string; hanja2: string; meaning1: string[]; meaning2: string[]; hangul1: string; hangul2: string; reason: string }[],
-  model = 'gpt-4o',
+  names: RichName[],
+  options: { surname: SurnameRow; lacking: string[]; model?: string },
 ): Promise<{ map: Record<string, NameDetail>; cost: number }> {
-  const makePrompt = (batch: typeof names) => {
-    const nameList = batch.map((n, idx) =>
-      `${idx + 1}. ${n.hangul} (${n.hanja1}${n.hanja2}): ${n.hanja1}(${n.meaning1[0] ?? ''} ${n.hangul1}) + ${n.hanja2}(${n.meaning2[0] ?? ''} ${n.hangul2}) - 기본해설: ${n.reason}`,
-    ).join('\n');
-    return `아래 이름들에 대해 각각 4가지 형태의 해설을 작성해주세요.
-한자의 실제 뜻을 바탕으로, 이 이름을 가진 아이가 어떤 사람으로 자라길 바라는지 따뜻하게 작성하세요.
-문체는 자연스럽고 따뜻한 현대 한국어로. 딱딱한 경어체(~바라신다, ~담고 있다, ~기대한다) 금지.
-대신 "~이에요", "~을 담았어요", "~로 자라길 바라요" 같은 부드러운 표현 사용.
-순한글로만 작성. 영어 혼용 금지. 과장 금지. 진정성 있게.
+  const { surname, lacking, model = MODEL_DETAIL } = options;
 
-이름 목록:
+  // AI가 오행·획수·길흉을 추측하지 않도록, 이미 계산이 끝난 값을 모두 프롬프트에 명시한다.
+  const describe = (n: RichName, idx: number) => {
+    const chain = [...(surname.hangul + n.hangul)]
+      .map((char, i) => `${n.soundOhangList[i] ?? '?'}(${char})`)
+      .join(' → ');
+    const grids = (['원격', '형격', '이격', '정격', '총격'] as const)
+      .map((key) => `${key} ${n.grids[key].stroke}획(${ll(n.grids[key].luck)}, ${n.grids[key].description})`)
+      .join(' / ');
+
+    return [
+      `${idx + 1}. ${surname.hangul}${n.hangul} (${surname.hanja}${n.hanja}) — 종합 ${n.score}점`,
+      `   ${n.hanja1}: 훈 [${buildMeaningsDisplay(n.meaning1, n.hangul1).join(', ')}], 오행 ${n.ohang1 || '미상'}`,
+      `   ${n.hanja2}: 훈 [${buildMeaningsDisplay(n.meaning2, n.hangul2).join(', ')}], 오행 ${n.ohang2 || '미상'}`,
+      `   사격: ${grids}`,
+      `   총획: ${n.grids.총격.rawStroke}획`,
+      `   발음오행: ${chain}`,
+      `   발음오행 판정: ${n.soundDetails.join(', ') || '없음'}`,
+      `   기본 해설: ${n.reason}`,
+    ].join('\n');
+  };
+
+  const makePrompt = (batch: RichName[]) => {
+    const nameList = batch.map(describe).join('\n\n');
+    // 필드별로 문체를 다르게 요구한다.
+    // summary/categories/tags는 카드 UI에 짧게 노출되므로 따뜻한 구어체를 유지하고,
+    // detail은 유료 상세 페이지의 본문이므로 근거를 제시하는 분석체로 작성한다.
+    return `아래 이름들에 대해 각각 4가지 형태의 해설을 작성해주세요.
+순한글로만 작성. 영어 혼용 금지. 과장 금지.
+
+[근거 규칙] — 반드시 지킬 것
+아래 [분석 데이터]의 값은 이미 확정된 계산 결과입니다.
+오행·획수·길흉·점수를 임의로 판단하거나 다르게 바꾸지 마세요.
+데이터에 없는 사실을 추측해서 쓰지 마세요. "~로 보입니다", "~로 봅니다" 같은 추정 표현 금지.
+오행 상생은 木→火→土→金→水→木 이고, 상극은 木→土, 土→水, 水→火, 火→金, 金→木 입니다.
+이 관계를 반대로 쓰거나 새로 만들지 마세요. (예: 木과 土는 상극이며 상생이 아닙니다.)
+두 오행이 같으면 비화(比和)입니다. 비화는 같은 기운이 겹쳐 짙어지는 관계이며, 상생이 아닙니다.
+(예: 木과 木은 비화입니다. 이를 상생이라고 쓰지 마세요.)
+제공된 길흉 설명은 전통 명리 용어입니다. 그대로 인용하되 미래를 단정하는 표현으로 바꾸지 마세요.
+("성공적인 인생을 예고합니다", "부귀영화를 누립니다" 같은 표현 금지)
+데이터에 없는 평가는 쓰지 마세요. 부르기 편한 정도, 기억하기 쉬운 정도 같은 인상 평가 금지.
+같은 내용을 다른 문장으로 반복하지 마세요.
+
+[문체 규칙]
+- summary, categories, tags: 따뜻하고 부드러운 현대 한국어.
+  "~이에요", "~을 담았어요", "~로 자라길 바라요" 같은 표현 사용.
+- detail: 작명 전문가가 근거를 들어 설명하는 분석체. '~합니다' 체로 작성.
+  "~이에요", "~할 거예요", "~바라요" 같은 구어체 어미 금지.
+  호칭·인사말·맺음말 금지. 편지·축사 형식 금지 (예: "사랑하는 OO에게" 같은 서두 금지).
+  기원이나 감탄이 아니라, 근거와 해석만 서술.
+
+이 아이의 사주에 부족한 기운: ${lacking.join(', ') || '없음'}
+
+[분석 데이터]
 ${nameList}
 
 출력형식:
@@ -402,7 +465,7 @@ ${nameList}
     {"title":"제목 8자 내외","description":"설명 40자 내외"},
     {"title":"제목 8자 내외","description":"설명 40자 내외"}
   ],
-  "detail":"1500자 내외 상세 해설. 한자 뜻(여러 뜻 중 가장 어울리는 것)·소리·오행·발음오행 흐름을 자연스럽게 엮어, 이름을 처음 들었을 때의 느낌부터 평생 이어질 삶의 모습까지, 부모에게 보내는 긴 편지처럼 써주세요. 단락을 나눠 흐름 있게 전개하세요.",
+  "detail":"1200자 내외 분석. 아래 순서로 다섯 단락을 나눠 서술한다. (1) 두 한자의 자의(字義)와 결합했을 때 형성되는 의미 (2) 발음오행 판정 데이터를 근거로 한 소리의 흐름 (3) 두 글자의 오행 구성과 상생·상극·비화 관계 (4) 사주에 부족한 기운을 이 이름이 보완하는지 여부와 그 정도 (5) 원격·형격·이격·정격·총격 다섯 가지를 모두 언급한 종합 평가. 각 단락은 데이터를 근거로 제시한 뒤 해석을 덧붙인다. 단락마다 200자 이상 서술한다.",
   "tags":["#태그1","#태그2","#태그3","#태그4"]
 }]}`;
   };
@@ -412,7 +475,10 @@ ${nameList}
     catch { return []; }
   };
 
-  const BATCH = 10;
+  // 이름 1개당 detail 1200자 + summary/categories/tags 로 약 1,400자를 생성한다.
+  // gpt-4o의 출력 상한이 16,384 토큰이라 10개 배치는 상한에 걸려 뒷부분이 잘린다.
+  // (잘린 배치는 JSON 파싱에 실패해 통째로 누락되므로 배치를 작게 유지한다.)
+  const BATCH = 5;
   let totalCost = 0;
   const map: Record<string, NameDetail> = {};
 
@@ -455,7 +521,7 @@ ${nameList}
 // Free 전용 경량 AI 호출 — summary + tags만 생성
 export async function generateBriefDetail(
   name: { hangul: string; hanja1: string; hanja2: string; meaning1: string[]; meaning2: string[]; reason: string },
-  model = 'gpt-4o',
+  model = MODEL_BRIEF,
 ): Promise<{ summary: string; tags: string[]; cost: number }> {
   const prompt = `이름 ${name.hangul} (${name.hanja1}${name.hanja2}): ${name.hanja1}(${name.meaning1[0] ?? ''}) + ${name.hanja2}(${name.meaning2[0] ?? ''}) - ${name.reason}
 
@@ -472,6 +538,10 @@ export async function generateBriefDetail(
     const tags = (r.tags ?? []).map((t) => { const s = t.trim(); return s.startsWith('#') ? s : `#${s}`; }).filter(isValidTag);
     return { summary: r.summary ?? name.reason, tags, cost };
   } catch {
+    // 폴백(reason 그대로 사용)이 조용히 동작하면 태그 없는 결과가 왜 나왔는지 추적할 수 없다.
+    console.error(
+      `[generateBriefDetail] JSON 파싱 실패 (${name.hangul}, model=${model}): ${text.slice(0, 200)}`,
+    );
     return { summary: name.reason, tags: [], cost };
   }
 }
@@ -510,9 +580,10 @@ export async function collectNames(params: {
   maxAttempts: number;
   model: string;
   usedNames: Set<string>;
-}): Promise<RichName[]> {
+}): Promise<{ names: RichName[]; cost: number }> {
   const { supabase, surname, survey, lacking, target, maxAttempts, model, usedNames } = params;
   const results: RichName[] = [];
+  let totalCost = 0;
   let attempts = 0;
 
   // 형제이름에서 성씨(첫 글자) 제거 후 글자 추출, 돌림자는 avoid에서 제외
@@ -525,7 +596,7 @@ export async function collectNames(params: {
 
   while (results.length < target && attempts < maxAttempts) {
     const safeMoods = (survey.mood_keywords ?? []).filter(k => ALLOWED_MOOD_KEYWORDS.includes(k));
-    const { names: aiNames } = await generateNames({
+    const { names: aiNames, cost } = await generateNames({
       surname: surname.hangul,
       gender: survey.gender,
       ohang: lacking,
@@ -533,6 +604,17 @@ export async function collectNames(params: {
       model,
       moodKeywords: safeMoods,
     });
+    totalCost += cost;
+
+    // AI가 응답을 못 냈거나 JSON 파싱에 실패하면 빈 배열이 온다.
+    // 토큰은 이미 소비된 뒤이므로, 원인 추적을 위해 반드시 남긴다.
+    if (aiNames.length === 0) {
+      console.warn(
+        `[collectNames] AI 응답 0건 (model=${model}, attempt=${attempts + 1}/${maxAttempts}, 확보=${results.length}/${target})`,
+      );
+    }
+    // 요청 대비 필터 통과율. 요청 개수를 바꾸면 이 비율의 기준선도 달라지므로 함께 남긴다.
+    const beforeCount = results.length;
 
     const valid = aiNames.filter((n) => {
       if (usedNames.has(n.hangul)) return false;
@@ -585,9 +667,12 @@ export async function collectNames(params: {
         soundScore: sound.score, soundOhangList: sound.ohangList, soundDetails: sound.details,
       });
     }
+    console.log(
+      `[collectNames] requested=${NAMES_PER_CALL} ai=${aiNames.length} passed=${results.length - beforeCount} total=${results.length}/${target} attempt=${attempts + 1}`,
+    );
     attempts++;
   }
-  return results;
+  return { names: results, cost: totalCost };
 }
 
 // ==========================================================
@@ -665,6 +750,12 @@ export function buildDetailedExplanation(name: RichName, detail?: NameDetail): s
   return [detail.summary, '', categoryText, '', detailText, '', detail.tags.join(' ')].join('\n');
 }
 
+// 상세 페이지에서 섹션별로 렌더링할 수 있도록, AI 해설 본문만 뽑아 detail_body에 저장한다.
+// detailed_explanation(요약+카테고리+본문+태그 합본)은 하위 호환을 위해 함께 유지한다.
+export function buildDetailBody(name: RichName, detail?: NameDetail): string {
+  return detail?.detail?.trim() || name.reason;
+}
+
 export function toApiShape(name: RichName, detail: NameDetail | undefined, lacking: string[], sortOrder: number) {
   return {
     sortOrder,
@@ -683,6 +774,7 @@ export function toApiShape(name: RichName, detail: NameDetail | undefined, lacki
     ohangSummary:        buildOhangSummary(name, lacking),
     numerologySummary:   buildNumerologySummary(name),
     detailedExplanation: buildDetailedExplanation(name, detail),
+    detailBody:          buildDetailBody(name, detail),
     totalStrokes:        name.grids.총격.rawStroke,
     tags:       detail?.tags ?? [],
     categories: detail?.categories ?? [],
@@ -711,6 +803,7 @@ export function toDbRow(params: {
     saju_summary:         [buildSajuSummary(name, lacking), buildOhangSummary(name, lacking)],
     numerology_summary:   buildNumerologySummary(name),
     detailed_explanation: buildDetailedExplanation(name, detail),
+    detail_body:          buildDetailBody(name, detail),
     tags:                 detail?.tags ?? [],
     categories:           detail?.categories ?? [],
     grids:                name.grids,
@@ -748,6 +841,7 @@ export function toDbRowBrief(params: {
     saju_summary:         [buildSajuSummary(name, lacking), buildOhangSummary(name, lacking)],
     numerology_summary:   buildNumerologySummary(name),
     detailed_explanation: '',
+    detail_body:          '',
     tags,
     categories:           [],
     grids:                name.grids,
@@ -783,6 +877,8 @@ export function toApiShapeFromDb(row: Record<string, unknown>) {
     ohangSummary:        saju[1] ?? '',
     numerologySummary:   row.numerology_summary as string,
     detailedExplanation: row.detailed_explanation as string,
+    // detail_body 도입 이전에 생성된 행은 빈 값이므로 합본 문자열로 폴백한다.
+    detailBody:          ((row.detail_body as string) || (row.detailed_explanation as string)) ?? '',
     tags:                (row.tags as string[]) ?? [],
     categories:          (row.categories as { title: string; description: string }[]) ?? [],
     totalStrokes:        row.total_strokes as number,

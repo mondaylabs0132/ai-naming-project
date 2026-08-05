@@ -32,7 +32,11 @@ export default async function MyPageResultDetail({
 
   return (
     <>
-      <ResultPageView requestId={id} userId={user.id} />
+      <ResultPageView
+        requestId={id}
+        userId={user.id}
+        detailBasePath={`/mypage/results/${id}/detail`}
+      />
       <Footer />
     </>
   );

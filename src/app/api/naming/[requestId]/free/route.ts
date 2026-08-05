@@ -12,6 +12,7 @@ import {
   collectNames,
   generateBriefDetail,
   toDbRowBrief,
+  MODEL_NAME_GEN,
 } from "../_lib";
 
 export async function POST(
@@ -92,14 +93,14 @@ export async function POST(
 
     // ── 이름 생성 ─────────────────────────────────────────────
     const usedNames = new Set<string>();
-    const pool = await collectNames({
+    const { names: pool, cost: nameCost } = await collectNames({
       supabase,
       surname,
       survey,
       lacking,
       target: 20,
       maxAttempts: 2,
-      model: "gpt-4o",
+      model: MODEL_NAME_GEN,
       usedNames,
     });
 
@@ -122,16 +123,18 @@ export async function POST(
       pool.find((r) => r.score >= 75) ??
       pool[0];
 
-    const { summary, tags } = await generateBriefDetail(
-      {
-        hangul:   freeName.hangul,
-        hanja1:   freeName.hanja1,
-        hanja2:   freeName.hanja2,
-        meaning1: freeName.meaning1,
-        meaning2: freeName.meaning2,
-        reason:   freeName.reason,
-      },
-      "gpt-4o",
+    const { summary, tags, cost: briefCost } = await generateBriefDetail({
+      hangul:   freeName.hangul,
+      hanja1:   freeName.hanja1,
+      hanja2:   freeName.hanja2,
+      meaning1: freeName.meaning1,
+      meaning2: freeName.meaning2,
+      reason:   freeName.reason,
+    });
+
+    // 무료 사용자 수가 원가의 대부분을 차지하므로 건당 실제 비용을 남긴다.
+    console.log(
+      `[ai-cost] stage=free requestId=${requestId} krw=${(nameCost + briefCost).toFixed(2)} pool=${pool.length}`,
     );
 
     // ── DB 저장 (summary + tags만, detail은 premium 호출 시 UPDATE) ──
