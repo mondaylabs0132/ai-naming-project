@@ -1,26 +1,41 @@
-import { createAdminClient } from '@/lib/supabase/admin';
-import { calculateSaju } from '@fullstackfamily/manseryeok';
+import { createAdminClient } from "@/lib/supabase/admin";
+import { calculateSaju } from "@fullstackfamily/manseryeok";
 
 // ==========================================================
 // Types
 // ==========================================================
 
-export type LuckType = 'good' | 'bad' | 'mixed';
+export type LuckType = "good" | "bad" | "mixed";
 export type GridItem = { stroke: number; luck: LuckType; description: string };
 export type Grids = {
-  원격: GridItem; 형격: GridItem; 이격: GridItem; 정격: GridItem;
+  원격: GridItem;
+  형격: GridItem;
+  이격: GridItem;
+  정격: GridItem;
   총격: GridItem & { rawStroke: number };
-  goodCount: number; isAllGood: boolean; isThreeGood: boolean; isTwoGood: boolean;
+  goodCount: number;
+  isAllGood: boolean;
+  isThreeGood: boolean;
+  isTwoGood: boolean;
 };
 
 export type RichName = {
-  hangul: string; hanja: string;
-  hanja1: string; hanja2: string;
-  hangul1: string; hangul2: string;
-  meaning1: string[]; meaning2: string[];
-  reason: string; score: number; grids: Grids;
-  ohang1: string; ohang2: string;
-  soundScore: number; soundOhangList: string[]; soundDetails: string[];
+  hangul: string;
+  hanja: string;
+  hanja1: string;
+  hanja2: string;
+  hangul1: string;
+  hangul2: string;
+  meaning1: string[];
+  meaning2: string[];
+  reason: string;
+  score: number;
+  grids: Grids;
+  ohang1: string;
+  ohang2: string;
+  soundScore: number;
+  soundOhangList: string[];
+  soundDetails: string[];
 };
 
 export type NameDetail = {
@@ -37,9 +52,13 @@ export type SurveyRow = {
   birth_month: number;
   birth_day: number | null;
   birth_time: string | null;
-  gender: '남자' | '여자';
+  // DB 기본값이 '모름'이라 두 값만으로는 실제를 표현하지 못한다.
+  gender: "남자" | "여자" | "모름";
   mood_keywords: string[];
   avoid_hangul: string[];
+  // 설문에서 고른 기피 한자의 hanja.id 목록(최대 5개).
+  // 글자 자체가 아니라 id로 저장되므로 생성 전에 문자로 풀어야 한다.
+  avoid_hanja_id: number[];
   sibling_names: string[];
   generation_name: string | null;
 };
@@ -56,119 +75,293 @@ export type SurnameRow = {
 // ==========================================================
 
 export const ganOhang: Record<string, string> = {
-  갑: '木', 을: '木', 병: '火', 정: '火',
-  무: '土', 기: '土', 경: '金', 신: '金', 임: '水', 계: '水',
+  갑: "木",
+  을: "木",
+  병: "火",
+  정: "火",
+  무: "土",
+  기: "土",
+  경: "金",
+  신: "金",
+  임: "水",
+  계: "水",
 };
 
 export const jiOhang: Record<string, string> = {
-  자: '水', 축: '土', 인: '木', 묘: '木', 진: '土', 사: '火',
-  오: '火', 미: '土', 신: '金', 유: '金', 술: '土', 해: '水',
+  자: "水",
+  축: "土",
+  인: "木",
+  묘: "木",
+  진: "土",
+  사: "火",
+  오: "火",
+  미: "土",
+  신: "金",
+  유: "金",
+  술: "土",
+  해: "水",
 };
 
-export const stroke81: Record<number, { luck: LuckType; description: string }> = {
-  1:  { luck: 'good',  description: '만물의 근원, 자수성가' },
-  2:  { luck: 'bad',   description: '분리운, 고독' },
-  3:  { luck: 'good',  description: '명예운, 총명하고 출세' },
-  4:  { luck: 'bad',   description: '고난운, 파란이 많음' },
-  5:  { luck: 'good',  description: '복덕운, 오행이 갖춰져 성공' },
-  6:  { luck: 'good',  description: '계승운, 안정되고 덕망' },
-  7:  { luck: 'good',  description: '독립운, 의지가 강하고 성공' },
-  8:  { luck: 'good',  description: '발전운, 노력으로 크게 성공' },
-  9:  { luck: 'bad',   description: '역경운, 단명하거나 실패' },
-  10: { luck: 'bad',   description: '공허운, 겉은 화려하나 속은 허함' },
-  11: { luck: 'good',  description: '자수성가운, 번창하고 성공' },
-  12: { luck: 'bad',   description: '박약운, 고독하고 무력함' },
-  13: { luck: 'good',  description: '지모운, 총명하고 출세' },
-  14: { luck: 'bad',   description: '이산운, 가정과 사업이 흩어짐' },
-  15: { luck: 'good',  description: '덕망운, 인덕이 있어 성공' },
-  16: { luck: 'good',  description: '덕후운, 사람들의 신망을 얻음' },
-  17: { luck: 'good',  description: '건창운, 강한 의지로 성공' },
-  18: { luck: 'good',  description: '발전운, 권위와 재물을 얻음' },
-  19: { luck: 'bad',   description: '고난운, 병약하거나 실패' },
-  20: { luck: 'bad',   description: '허망운, 허무하게 무너짐' },
-  21: { luck: 'good',  description: '두령운, 지도자적 기질' },
-  22: { luck: 'bad',   description: '중절운, 중도에 좌절' },
-  23: { luck: 'good',  description: '공명운, 이름을 떨치고 성공' },
-  24: { luck: 'good',  description: '입신운, 재물과 명예를 얻음' },
-  25: { luck: 'mixed', description: '안강운, 안정적이나 때로 굴곡' },
-  26: { luck: 'bad',   description: '영웅운, 파란이 많은 영웅 기질' },
-  27: { luck: 'mixed', description: '중길운, 성공하나 만년에 굴곡' },
-  28: { luck: 'bad',   description: '파란운, 파란만장하고 불안정' },
-  29: { luck: 'good',  description: '성공운, 지혜롭고 크게 성공' },
-  30: { luck: 'mixed', description: '부침운, 성패가 반반' },
-  31: { luck: 'good',  description: '융창운, 덕망 있고 번창' },
-  32: { luck: 'good',  description: '행운, 뜻밖의 행운으로 성공' },
-  33: { luck: 'good',  description: '승천운, 강한 리더십으로 성공' },
-  34: { luck: 'bad',   description: '파멸운, 재난과 파멸의 기운' },
-  35: { luck: 'good',  description: '온건운, 학문과 예술로 성공' },
-  36: { luck: 'mixed', description: '영웅운, 영웅적이나 파란 多' },
-  37: { luck: 'good',  description: '권위운, 덕망과 권위로 성공' },
-  38: { luck: 'mixed', description: '예능운, 예술적 재능' },
-  39: { luck: 'good',  description: '부귀운, 부귀영화를 누림' },
-  40: { luck: 'bad',   description: '무상운, 덧없고 허망함' },
-  41: { luck: 'good',  description: '최고운, 덕망과 실력으로 최고' },
-  42: { luck: 'mixed', description: '중길운, 중간 정도의 성공' },
-  43: { luck: 'bad',   description: '산란운, 산만하고 불안정' },
-  44: { luck: 'bad',   description: '마장운, 장애가 많고 실패' },
-  45: { luck: 'good',  description: '순성운, 순조롭게 성공' },
-  46: { luck: 'bad',   description: '미달운, 뜻을 이루지 못함' },
-  47: { luck: 'good',  description: '개화운, 늦게 피는 꽃, 만년 성공' },
-  48: { luck: 'good',  description: '유덕운, 덕망 있고 존경받음' },
-  49: { luck: 'mixed', description: '변화운, 변화가 많고 기복' },
-  50: { luck: 'mixed', description: '중길운, 절반의 성공과 실패' },
-  51: { luck: 'mixed', description: '성쇠운, 성공과 실패가 반복' },
-  52: { luck: 'good',  description: '진취운, 적극적으로 성공' },
-  53: { luck: 'bad',   description: '내허운, 겉은 성공 속은 허함' },
-  54: { luck: 'bad',   description: '고난운, 파란이 많고 불운' },
-  55: { luck: 'bad',   description: '불완전운, 완성되지 못함' },
-  56: { luck: 'bad',   description: '한탄운, 뜻대로 되지 않음' },
-  57: { luck: 'mixed', description: '노력운, 꾸준한 노력으로 성공' },
-  58: { luck: 'mixed', description: '후길운, 후반에 길해짐' },
-  59: { luck: 'bad',   description: '장애운, 장애가 많고 실패' },
-  60: { luck: 'bad',   description: '암흑운, 앞이 보이지 않음' },
-  61: { luck: 'good',  description: '명예운, 명예와 덕망을 얻음' },
-  62: { luck: 'bad',   description: '쇠퇴운, 점점 쇠퇴함' },
-  63: { luck: 'good',  description: '순성운, 순조롭게 성공' },
-  64: { luck: 'bad',   description: '침체운, 의욕이 없고 침체' },
-  65: { luck: 'good',  description: '장수운, 건강하고 장수' },
-  66: { luck: 'bad',   description: '쇠퇴운, 활력이 없고 쇠퇴' },
-  67: { luck: 'good',  description: '성공운, 안정적으로 성공' },
-  68: { luck: 'good',  description: '발전운, 꾸준히 발전' },
-  69: { luck: 'bad',   description: '불안운, 불안하고 방황' },
-  70: { luck: 'bad',   description: '공허운, 허무하고 공허함' },
-  71: { luck: 'mixed', description: '반길운, 반은 길하고 반은 흉' },
-  72: { luck: 'bad',   description: '후흉운, 후반에 흉해짐' },
-  73: { luck: 'mixed', description: '안정운, 평온하나 발전 부족' },
-  74: { luck: 'bad',   description: '실패운, 노력해도 실패' },
-  75: { luck: 'mixed', description: '평온운, 무난하게 살아감' },
-  76: { luck: 'bad',   description: '선길후흉운, 초반 성공 후반 실패' },
-  77: { luck: 'mixed', description: '길흉반반운, 성패가 교차' },
-  78: { luck: 'mixed', description: '선흉후길운, 초반 고난 후반 성공' },
-  79: { luck: 'bad',   description: '종말운, 결실 없이 끝남' },
-  80: { luck: 'bad',   description: '공허운, 모든 것이 공허함' },
-  81: { luck: 'good',  description: '환원운, 새로운 시작' },
+export const stroke81: Record<number, { luck: LuckType; description: string }> =
+  {
+    1: { luck: "good", description: "만물의 근원, 자수성가" },
+    2: { luck: "bad", description: "분리운, 고독" },
+    3: { luck: "good", description: "명예운, 총명하고 출세" },
+    4: { luck: "bad", description: "고난운, 파란이 많음" },
+    5: { luck: "good", description: "복덕운, 오행이 갖춰져 성공" },
+    6: { luck: "good", description: "계승운, 안정되고 덕망" },
+    7: { luck: "good", description: "독립운, 의지가 강하고 성공" },
+    8: { luck: "good", description: "발전운, 노력으로 크게 성공" },
+    9: { luck: "bad", description: "역경운, 단명하거나 실패" },
+    10: { luck: "bad", description: "공허운, 겉은 화려하나 속은 허함" },
+    11: { luck: "good", description: "자수성가운, 번창하고 성공" },
+    12: { luck: "bad", description: "박약운, 고독하고 무력함" },
+    13: { luck: "good", description: "지모운, 총명하고 출세" },
+    14: { luck: "bad", description: "이산운, 가정과 사업이 흩어짐" },
+    15: { luck: "good", description: "덕망운, 인덕이 있어 성공" },
+    16: { luck: "good", description: "덕후운, 사람들의 신망을 얻음" },
+    17: { luck: "good", description: "건창운, 강한 의지로 성공" },
+    18: { luck: "good", description: "발전운, 권위와 재물을 얻음" },
+    19: { luck: "bad", description: "고난운, 병약하거나 실패" },
+    20: { luck: "bad", description: "허망운, 허무하게 무너짐" },
+    21: { luck: "good", description: "두령운, 지도자적 기질" },
+    22: { luck: "bad", description: "중절운, 중도에 좌절" },
+    23: { luck: "good", description: "공명운, 이름을 떨치고 성공" },
+    24: { luck: "good", description: "입신운, 재물과 명예를 얻음" },
+    25: { luck: "mixed", description: "안강운, 안정적이나 때로 굴곡" },
+    26: { luck: "bad", description: "영웅운, 파란이 많은 영웅 기질" },
+    27: { luck: "mixed", description: "중길운, 성공하나 만년에 굴곡" },
+    28: { luck: "bad", description: "파란운, 파란만장하고 불안정" },
+    29: { luck: "good", description: "성공운, 지혜롭고 크게 성공" },
+    30: { luck: "mixed", description: "부침운, 성패가 반반" },
+    31: { luck: "good", description: "융창운, 덕망 있고 번창" },
+    32: { luck: "good", description: "행운, 뜻밖의 행운으로 성공" },
+    33: { luck: "good", description: "승천운, 강한 리더십으로 성공" },
+    34: { luck: "bad", description: "파멸운, 재난과 파멸의 기운" },
+    35: { luck: "good", description: "온건운, 학문과 예술로 성공" },
+    36: { luck: "mixed", description: "영웅운, 영웅적이나 파란 多" },
+    37: { luck: "good", description: "권위운, 덕망과 권위로 성공" },
+    38: { luck: "mixed", description: "예능운, 예술적 재능" },
+    39: { luck: "good", description: "부귀운, 부귀영화를 누림" },
+    40: { luck: "bad", description: "무상운, 덧없고 허망함" },
+    41: { luck: "good", description: "최고운, 덕망과 실력으로 최고" },
+    42: { luck: "mixed", description: "중길운, 중간 정도의 성공" },
+    43: { luck: "bad", description: "산란운, 산만하고 불안정" },
+    44: { luck: "bad", description: "마장운, 장애가 많고 실패" },
+    45: { luck: "good", description: "순성운, 순조롭게 성공" },
+    46: { luck: "bad", description: "미달운, 뜻을 이루지 못함" },
+    47: { luck: "good", description: "개화운, 늦게 피는 꽃, 만년 성공" },
+    48: { luck: "good", description: "유덕운, 덕망 있고 존경받음" },
+    49: { luck: "mixed", description: "변화운, 변화가 많고 기복" },
+    50: { luck: "mixed", description: "중길운, 절반의 성공과 실패" },
+    51: { luck: "mixed", description: "성쇠운, 성공과 실패가 반복" },
+    52: { luck: "good", description: "진취운, 적극적으로 성공" },
+    53: { luck: "bad", description: "내허운, 겉은 성공 속은 허함" },
+    54: { luck: "bad", description: "고난운, 파란이 많고 불운" },
+    55: { luck: "bad", description: "불완전운, 완성되지 못함" },
+    56: { luck: "bad", description: "한탄운, 뜻대로 되지 않음" },
+    57: { luck: "mixed", description: "노력운, 꾸준한 노력으로 성공" },
+    58: { luck: "mixed", description: "후길운, 후반에 길해짐" },
+    59: { luck: "bad", description: "장애운, 장애가 많고 실패" },
+    60: { luck: "bad", description: "암흑운, 앞이 보이지 않음" },
+    61: { luck: "good", description: "명예운, 명예와 덕망을 얻음" },
+    62: { luck: "bad", description: "쇠퇴운, 점점 쇠퇴함" },
+    63: { luck: "good", description: "순성운, 순조롭게 성공" },
+    64: { luck: "bad", description: "침체운, 의욕이 없고 침체" },
+    65: { luck: "good", description: "장수운, 건강하고 장수" },
+    66: { luck: "bad", description: "쇠퇴운, 활력이 없고 쇠퇴" },
+    67: { luck: "good", description: "성공운, 안정적으로 성공" },
+    68: { luck: "good", description: "발전운, 꾸준히 발전" },
+    69: { luck: "bad", description: "불안운, 불안하고 방황" },
+    70: { luck: "bad", description: "공허운, 허무하고 공허함" },
+    71: { luck: "mixed", description: "반길운, 반은 길하고 반은 흉" },
+    72: { luck: "bad", description: "후흉운, 후반에 흉해짐" },
+    73: { luck: "mixed", description: "안정운, 평온하나 발전 부족" },
+    74: { luck: "bad", description: "실패운, 노력해도 실패" },
+    75: { luck: "mixed", description: "평온운, 무난하게 살아감" },
+    76: { luck: "bad", description: "선길후흉운, 초반 성공 후반 실패" },
+    77: { luck: "mixed", description: "길흉반반운, 성패가 교차" },
+    78: { luck: "mixed", description: "선흉후길운, 초반 고난 후반 성공" },
+    79: { luck: "bad", description: "종말운, 결실 없이 끝남" },
+    80: { luck: "bad", description: "공허운, 모든 것이 공허함" },
+    81: { luck: "good", description: "환원운, 새로운 시작" },
+  };
+
+// 두음법칙 변형표 — 한자의 본음이 이름에서 달리 적히는 경우.
+// hanja.hangul 배열에는 본음만 들어 있어(예: 律 → ['률'])
+// 이 표가 없으면 "하율(夏律)" 같은 정상 이름까지 불일치로 걸러진다.
+const DUEUM_VARIANT: Record<string, string> = {
+  랴: "야", 략: "약", 량: "양", 려: "여", 력: "역", 련: "연",
+  렬: "열", 렴: "염", 렵: "엽", 령: "영", 례: "예", 로: "노",
+  록: "녹", 론: "논", 롱: "농", 뢰: "뇌", 료: "요", 룡: "용",
+  루: "누", 류: "유", 륙: "육", 륜: "윤", 률: "율", 륭: "융",
+  르: "느", 륵: "늑", 름: "늠", 릉: "능", 리: "이", 린: "인",
+  림: "임", 립: "입", 라: "나", 락: "낙", 란: "난", 람: "남",
+  랑: "낭", 래: "내", 랭: "냉",
+  냐: "야", 녀: "여", 뇨: "요", 뉴: "유", 니: "이",
 };
+
+/**
+ * 한글 한 글자가 해당 한자의 독음으로 성립하는지 판정한다.
+ *
+ * AI는 한글 이름과 한자를 각각 만들기 때문에 둘이 어긋난 후보가 나온다.
+ * (예: 銀星을 "은별"로, 晶雲을 "정우"로 낸다)
+ * 화면에는 한글과 한자가 나란히 나가므로 어긋나면 결과가 앞뒤가 맞지 않는다.
+ * gpt-4o에서도 동일하게 발생해 모델로는 해결되지 않는다.
+ */
+export function isReadingOf(
+  syllable: string,
+  row: { hangul_main: string; hangul: string[] },
+): boolean {
+  const readings = [row.hangul_main, ...(row.hangul ?? [])].filter(Boolean);
+  return readings.some((r) => r === syllable || DUEUM_VARIANT[r] === syllable);
+}
+
+export type HanjaVariantRow = {
+  hanja: string;
+  hangul_main: string;
+  meanings: string[];
+};
+
+/**
+ * 두 한자가 이체자(같은 글자의 다른 표기) 관계인지 판정한다.
+ *
+ * DB가 meanings에 관계를 적어두고 있다. 勛 → "공[勳]", 勲 → "勳의", 妍 → "姸과".
+ * 어느 쪽 설명이 상대 글자를 언급하면 같은 글자로 본다.
+ * 호출부에서 같은 독음 행만 넘기므로(이체자는 독음이 같다) 오인 위험이 낮다.
+ */
+export function isVariantOf(a: HanjaVariantRow, b: HanjaVariantRow): boolean {
+  if (a.hanja === b.hanja) return false;
+  const mentions = (row: HanjaVariantRow, target: string) =>
+    (row.meanings ?? []).join(" ").includes(target);
+  return mentions(a, b.hanja) || mentions(b, a.hanja);
+}
 
 export const blacklist = [
-  '이재명', '윤석열', '한동훈', '이준석', '홍준표', '안철수',
-  '전두환', '박정희', '김정은', '문재인', '박근혜', '이명박',
-  '노무현', '김대중', '김영삼', '이승만', '노태우', '최규하',
-  '조국', '추미애', '오세훈', '이낙연', '원희룡', '나경원',
-  '우원식', '심상정', '박지원', '이재용', '최태원', '정의선',
-  '구광모', '김일성', '김정일', '김여정', '모택동', '장개석',
-  '시진핑', '도조', '이토', '이완용', '연산군', '광해군',
-  '궁예', '견훤', '의자왕', '개똥', '말순', '삼식', '영자',
-  '만수', '덕구', '춘자', '말자', '숙자', '자옥', '점례',
-  '칠성', '팔도', '복남', '철수', '영희', '순이', '돌쇠',
-  '갑돌', '갑순', '을용', '병태', '영구', '맹구', '칠복',
-  '삼월', '사월', '오월', '순돌', '웅이', '달수', '복동',
-  '끝순', '춘희', '정자', '미자', '순자', '덕분', '복순',
-  '명자', '순희', '창식', '광식', '상철', '만득', '빡구',
-  '쇠돌', '삼돌', '바우', '칠득', '용달', '점박', '언년',
-  '끝돌', '판수', '덕배', '두식', '봉남', '팔봉', '만복',
-  '천복', '득춘', '필두', '기춘', '무덕', '식용', '춘삼',
-  '봉팔', '두한', '상두', '달재', '구식', '기식', '명숙',
-  '광자', '희자', '경자', '영숙', '정숙',
+  "이재명",
+  "윤석열",
+  "한동훈",
+  "이준석",
+  "홍준표",
+  "안철수",
+  "전두환",
+  "박정희",
+  "김정은",
+  "문재인",
+  "박근혜",
+  "이명박",
+  "노무현",
+  "김대중",
+  "김영삼",
+  "이승만",
+  "노태우",
+  "최규하",
+  "조국",
+  "추미애",
+  "오세훈",
+  "이낙연",
+  "원희룡",
+  "나경원",
+  "우원식",
+  "심상정",
+  "박지원",
+  "이재용",
+  "최태원",
+  "정의선",
+  "구광모",
+  "김일성",
+  "김정일",
+  "김여정",
+  "모택동",
+  "장개석",
+  "시진핑",
+  "도조",
+  "이토",
+  "이완용",
+  "연산군",
+  "광해군",
+  "궁예",
+  "견훤",
+  "의자왕",
+  "개똥",
+  "말순",
+  "삼식",
+  "영자",
+  "만수",
+  "덕구",
+  "춘자",
+  "말자",
+  "숙자",
+  "자옥",
+  "점례",
+  "칠성",
+  "팔도",
+  "복남",
+  "철수",
+  "영희",
+  "순이",
+  "돌쇠",
+  "갑돌",
+  "갑순",
+  "을용",
+  "병태",
+  "영구",
+  "맹구",
+  "칠복",
+  "삼월",
+  "사월",
+  "오월",
+  "순돌",
+  "웅이",
+  "달수",
+  "복동",
+  "끝순",
+  "춘희",
+  "정자",
+  "미자",
+  "순자",
+  "덕분",
+  "복순",
+  "명자",
+  "순희",
+  "창식",
+  "광식",
+  "상철",
+  "만득",
+  "빡구",
+  "쇠돌",
+  "삼돌",
+  "바우",
+  "칠득",
+  "용달",
+  "점박",
+  "언년",
+  "끝돌",
+  "판수",
+  "덕배",
+  "두식",
+  "봉남",
+  "팔봉",
+  "만복",
+  "천복",
+  "득춘",
+  "필두",
+  "기춘",
+  "무덕",
+  "식용",
+  "춘삼",
+  "봉팔",
+  "두한",
+  "상두",
+  "달재",
+  "구식",
+  "기식",
+  "명숙",
+  "광자",
+  "희자",
+  "경자",
+  "영숙",
+  "정숙",
 ];
 
 const SYSTEM_PROMPT = `당신은 한국 작명 전문가입니다.
@@ -200,26 +393,45 @@ reason은 순한글로만 작성하세요. 영어 혼용 금지.
 export const NAMES_PER_CALL = 60;
 const NAMES_MAX_TOKENS = 6000;
 
-export const MODEL_NAME_GEN = process.env.AI_MODEL_NAME_GEN ?? 'gpt-4o-mini';
-export const MODEL_BRIEF    = process.env.AI_MODEL_BRIEF    ?? 'gpt-4o-mini';
-export const MODEL_DETAIL   = process.env.AI_MODEL_DETAIL   ?? 'gpt-4o';
+// 무료 경로는 사용자 수가 많아 원가의 대부분을 차지한다.
+// gpt-4o로 측정했을 때 건당 26.10원(mini 1.17원의 22배)이라
+// 1000명당 1명 결제 가정에서 매출 19,900원을 넘어선다.
+// 게다가 독음 불일치·요약 예시 복사는 4o에서도 그대로 발생해
+// 모델을 올려도 해결되지 않는다. 검증은 코드로 한다.
+export const MODEL_NAME_GEN = process.env.AI_MODEL_NAME_GEN ?? "gpt-4o-mini";
+export const MODEL_BRIEF = process.env.AI_MODEL_BRIEF ?? "gpt-4o-mini";
+// 상세 해설은 결제한 사용자에게만 생성하므로 품질을 우선한다.
+export const MODEL_DETAIL = process.env.AI_MODEL_DETAIL ?? "gpt-4o";
 
 const MODEL_RATES: Record<string, [number, number]> = {
-  'gpt-4o':                    [2.5,  10],
-  'gpt-4o-mini':               [0.15, 0.60],
-  'claude-opus-4-8':           [15,   75],
-  'claude-sonnet-4-6':         [3,    15],
-  'claude-haiku-4-5-20251001': [0.8,  4],
+  "gpt-4o": [2.5, 10],
+  "gpt-4o-mini": [0.15, 0.6],
+  "claude-opus-4-8": [15, 75],
+  "claude-sonnet-4-6": [3, 15],
+  "claude-haiku-4-5-20251001": [0.8, 4],
 };
 
-export const ALLOWED_MOOD_KEYWORDS = ['부드러운', '따뜻한', '단아한', '세련된', '지혜로운', '모던한', '자연스러운', '특별한'];
+export const ALLOWED_MOOD_KEYWORDS = [
+  "부드러운",
+  "따뜻한",
+  "단아한",
+  "세련된",
+  "지혜로운",
+  "모던한",
+  "자연스러운",
+  "특별한",
+];
 
 // ==========================================================
 // Helpers
 // ==========================================================
 
 export function getLackingOhang(
-  year: number, month: number, day: number, hour?: number, minute?: number,
+  year: number,
+  month: number,
+  day: number,
+  hour?: number,
+  minute?: number,
 ): { lacking: string[]; count: Record<string, number> } {
   const saju = calculateSaju(year, month, day, hour, minute);
   const count: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
@@ -229,14 +441,30 @@ export function getLackingOhang(
     if (ganOhang[pillar[0]]) count[ganOhang[pillar[0]]]++;
     if (jiOhang[pillar[1]]) count[jiOhang[pillar[1]]]++;
   }
-  return { lacking: Object.entries(count).filter(([, v]) => v <= 1).map(([k]) => k), count };
+  return {
+    lacking: Object.entries(count)
+      .filter(([, v]) => v <= 1)
+      .map(([k]) => k),
+    count,
+  };
 }
 
-export function ohangFromSurvey(row: Pick<SurveyRow, 'birth_year' | 'birth_month' | 'birth_day' | 'birth_time'>) {
+export function ohangFromSurvey(
+  row: Pick<
+    SurveyRow,
+    "birth_year" | "birth_month" | "birth_day" | "birth_time"
+  >,
+) {
   const [bh, bm] = row.birth_time
-    ? row.birth_time.split(':').map(Number)
+    ? row.birth_time.split(":").map(Number)
     : [undefined, undefined];
-  return getLackingOhang(row.birth_year, row.birth_month, row.birth_day ?? 1, bh, bm);
+  return getLackingOhang(
+    row.birth_year,
+    row.birth_month,
+    row.birth_day ?? 1,
+    bh,
+    bm,
+  );
 }
 
 function normalize(n: number): number {
@@ -244,78 +472,140 @@ function normalize(n: number): number {
   return n;
 }
 
-export function getFourGrids(sungStrokes: number[], name1Stroke: number, name2Stroke: number): Grids {
+export function getFourGrids(
+  sungStrokes: number[],
+  name1Stroke: number,
+  name2Stroke: number,
+): Grids {
   let won: number, hyeong: number, i: number, jeong: number;
   if (sungStrokes.length === 1) {
     const [A, B, C] = [sungStrokes[0], name1Stroke, name2Stroke];
-    won = normalize(B + C); hyeong = normalize(A + B); i = normalize(A + C); jeong = normalize(A + B + C);
+    won = normalize(B + C);
+    hyeong = normalize(A + B);
+    i = normalize(A + C);
+    jeong = normalize(A + B + C);
   } else {
-    const [A, B, C, D] = [sungStrokes[0], sungStrokes[1], name1Stroke, name2Stroke];
-    won = normalize(C + D); hyeong = normalize(B + C); i = normalize(A + D); jeong = normalize(A + B + C + D);
+    const [A, B, C, D] = [
+      sungStrokes[0],
+      sungStrokes[1],
+      name1Stroke,
+      name2Stroke,
+    ];
+    won = normalize(C + D);
+    hyeong = normalize(B + C);
+    i = normalize(A + D);
+    jeong = normalize(A + B + C + D);
   }
   const chong = normalize(won + hyeong + i + jeong);
   const rawStroke = won + hyeong + i + jeong;
-  const goodCount = [won, hyeong, i, jeong].filter((s) => stroke81[s]?.luck === 'good').length;
+  const goodCount = [won, hyeong, i, jeong].filter(
+    (s) => stroke81[s]?.luck === "good",
+  ).length;
   return {
-    원격: { stroke: won,   ...stroke81[won] },
+    원격: { stroke: won, ...stroke81[won] },
     형격: { stroke: hyeong, ...stroke81[hyeong] },
-    이격: { stroke: i,     ...stroke81[i] },
+    이격: { stroke: i, ...stroke81[i] },
     정격: { stroke: jeong, ...stroke81[jeong] },
     총격: { stroke: chong, rawStroke, ...stroke81[chong] },
     goodCount,
-    isAllGood:   goodCount === 4,
+    isAllGood: goodCount === 4,
     isThreeGood: goodCount >= 3,
-    isTwoGood:   goodCount >= 2,
+    isTwoGood: goodCount >= 2,
   };
 }
 
 // 한자 사전의 뜻(訓) 배열 전체를 "훈+음" 표시형 포맷으로 변환. 예: ["준수할", "높을"] + "준" → ["준수할 준", "높을 준"]
-export function buildMeaningsDisplay(meanings: string[] | null | undefined, reading: string): string[] {
+export function buildMeaningsDisplay(
+  meanings: string[] | null | undefined,
+  reading: string,
+): string[] {
   return (meanings ?? [])
     .map((m) => m.trim())
     .filter(Boolean)
     .map((m) => (reading ? `${m} ${reading}` : m));
 }
 
-export function calcScore(grids: Grids, ohang1: string | null, ohang2: string | null, lacking: string[]): number {
+export function calcScore(
+  grids: Grids,
+  ohang1: string | null,
+  ohang2: string | null,
+  lacking: string[],
+): number {
   let score = grids.goodCount * 15;
   if (ohang1 && lacking.includes(ohang1)) score += 10;
   if (ohang2 && lacking.includes(ohang2)) score += 10;
-  if (grids.형격.luck === 'good') score += 8;
+  if (grids.형격.luck === "good") score += 8;
   if (grids.isAllGood) score += 7;
-  if (grids.총격.luck === 'good') score += 5;
-  if (grids.총격.luck === 'bad')  score -= 5;
+  if (grids.총격.luck === "good") score += 5;
+  if (grids.총격.luck === "bad") score -= 5;
   return Math.min(score, 100);
 }
 
 // 오행 상생(生)/상극(剋) 관계표 — 발음오행 점수 계산과 오행 조합 문장 생성에서 공용으로 사용
-export const OHANG_SHENG_MAP: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-export const OHANG_KE_MAP:    Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+export const OHANG_SHENG_MAP: Record<string, string> = {
+  木: "火",
+  火: "土",
+  土: "金",
+  金: "水",
+  水: "木",
+};
+export const OHANG_KE_MAP: Record<string, string> = {
+  木: "土",
+  土: "水",
+  水: "火",
+  火: "金",
+  金: "木",
+};
 
-export function calcSoundScore(surname: string, hangul: string): { score: number; ohangList: string[]; details: string[] } {
+export function calcSoundScore(
+  surname: string,
+  hangul: string,
+): { score: number; ohangList: string[]; details: string[] } {
   const soundMap: Record<string, string> = {
-    ㄱ: '木', ㅋ: '木', ㄴ: '火', ㄷ: '火', ㄹ: '火', ㅌ: '火',
-    ㅇ: '土', ㅎ: '土', ㅅ: '金', ㅈ: '金', ㅊ: '金',
-    ㅁ: '水', ㅂ: '水', ㅍ: '水',
+    ㄱ: "木",
+    ㅋ: "木",
+    ㄴ: "火",
+    ㄷ: "火",
+    ㄹ: "火",
+    ㅌ: "火",
+    ㅇ: "土",
+    ㅎ: "土",
+    ㅅ: "金",
+    ㅈ: "金",
+    ㅊ: "金",
+    ㅁ: "水",
+    ㅂ: "水",
+    ㅍ: "水",
   };
   const shengMap = OHANG_SHENG_MAP;
-  const keMap    = OHANG_KE_MAP;
+  const keMap = OHANG_KE_MAP;
 
   const ohangList = [...(surname + hangul)].map((char) => {
     const code = char.charCodeAt(0) - 0xac00;
-    if (code < 0) return '?';
-    const chosung = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'[Math.floor(code / 28 / 21)];
-    return soundMap[chosung] ?? '?';
+    if (code < 0) return "?";
+    const chosung = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"[
+      Math.floor(code / 28 / 21)
+    ];
+    return soundMap[chosung] ?? "?";
   });
 
   let score = 0;
   const details: string[] = [];
   for (let idx = 0; idx < ohangList.length - 1; idx++) {
-    const a = ohangList[idx], b = ohangList[idx + 1];
-    if      (shengMap[a] === b)               { score += 10; details.push(`${a}→${b} 상생 (+10)`); }
-    else if (a === b)                          { score += 5;  details.push(`${a}→${b} 비화 (+5)`);  }
-    else if (keMap[a] === b || keMap[b] === a) { score -= 5;  details.push(`${a}→${b} 상극 (-5)`);  }
-    else                                       {              details.push(`${a}→${b} 무관 (0)`);   }
+    const a = ohangList[idx],
+      b = ohangList[idx + 1];
+    if (shengMap[a] === b) {
+      score += 10;
+      details.push(`${a}→${b} 상생 (+10)`);
+    } else if (a === b) {
+      score += 5;
+      details.push(`${a}→${b} 비화 (+5)`);
+    } else if (keMap[a] === b || keMap[b] === a) {
+      score -= 5;
+      details.push(`${a}→${b} 상극 (-5)`);
+    } else {
+      details.push(`${a}→${b} 무관 (0)`);
+    }
   }
   return { score, ohangList, details };
 }
@@ -325,66 +615,123 @@ export function calcSoundScore(surname: string, hangul: string): { score: number
 // ==========================================================
 
 export async function callAI(
-  model: string, systemPrompt: string, userPrompt: string, maxTokens: number,
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number,
 ): Promise<{ text: string; cost: number }> {
-  let text = '', inputTokens = 0, outputTokens = 0;
+  let text = "",
+    inputTokens = 0,
+    outputTokens = 0;
 
-  if (model.startsWith('claude')) {
-    const body: Record<string, unknown> = { model, max_tokens: maxTokens, messages: [{ role: 'user', content: userPrompt }] };
+  if (model.startsWith("claude")) {
+    const body: Record<string, unknown> = {
+      model,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: userPrompt }],
+    };
     if (systemPrompt) body.system = systemPrompt;
-    const res  = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' },
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY!,
+        "anthropic-version": "2023-06-01",
+      },
       body: JSON.stringify(body),
     });
     const data = await res.json();
     if (data.error) throw new Error(`Anthropic: ${data.error.message}`);
-    text         = data.content?.[0]?.text ?? '';
-    inputTokens  = data.usage?.input_tokens ?? 0;
+    text = data.content?.[0]?.text ?? "";
+    inputTokens = data.usage?.input_tokens ?? 0;
     outputTokens = data.usage?.output_tokens ?? 0;
   } else {
     const messages: unknown[] = [];
-    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-    messages.push({ role: 'user', content: userPrompt });
-    const res  = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+    messages.push({ role: "user", content: userPrompt });
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
       body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
     });
     const data = await res.json();
     if (data.error) throw new Error(`OpenAI: ${data.error.message}`);
-    text         = data.choices?.[0]?.message?.content ?? '';
-    inputTokens  = data.usage?.prompt_tokens ?? 0;
+    text = data.choices?.[0]?.message?.content ?? "";
+    inputTokens = data.usage?.prompt_tokens ?? 0;
     outputTokens = data.usage?.completion_tokens ?? 0;
+
+    // 상한에 걸려 잘린 응답은 JSON이 깨져 통째로 버려진다.
+    // 조용히 넘어가면 "왜 결과가 비었는지"를 알 수 없으므로 반드시 남긴다.
+    const finish = data.choices?.[0]?.finish_reason;
+    if (finish && finish !== "stop") {
+      console.warn(
+        `[callAI] 비정상 종료 (model=${model}, finish_reason=${finish}, max_tokens=${maxTokens}, 출력=${outputTokens}토큰)`,
+      );
+    }
   }
 
   const [inRate, outRate] = MODEL_RATES[model] ?? [2.5, 10];
-  const cost = ((inputTokens * inRate + outputTokens * outRate) / 1_000_000) * 1450;
+  const cost =
+    ((inputTokens * inRate + outputTokens * outRate) / 1_000_000) * 1450;
   return { text, cost };
 }
 
 export async function generateNames(options: {
-  surname: string; gender: '남자' | '여자'; ohang: string[];
-  dolrimja?: string; model?: string; moodKeywords?: string[];
-}): Promise<{ names: { hangul: string; hanja: string; reason: string }[]; cost: number }> {
+  surname: string;
+  gender: "남자" | "여자" | "모름";
+  ohang: string[];
+  dolrimja?: string;
+  model?: string;
+  moodKeywords?: string[];
+  avoidHanja?: string[];
+}): Promise<{
+  names: { hangul: string; hanja: string; reason: string }[];
+  cost: number;
+}> {
   const model = options.model ?? MODEL_NAME_GEN;
-  const dolrimjaText = options.dolrimja ? `돌림자: "${options.dolrimja}" 반드시 포함` : '';
-  const moodText = options.moodKeywords?.length ? `분위기: ${options.moodKeywords.join(', ')}` : '';
-  const prompt = `성씨: ${options.surname} | 성별: ${options.gender} | 부족한 오행: ${options.ohang.join('/')} ${dolrimjaText} ${moodText}
+  const dolrimjaText = options.dolrimja
+    ? `돌림자: "${options.dolrimja}" 반드시 포함`
+    : "";
+  const moodText = options.moodKeywords?.length
+    ? `분위기: ${options.moodKeywords.join(", ")}`
+    : "";
+  // 걸러내는 건 아래 collectNames의 필터가 확실히 하지만, 미리 알려주면
+  // 버려질 후보를 덜 만들어 통과율이 올라간다.
+  const avoidHanjaText = options.avoidHanja?.length
+    ? `\n5. 다음 한자는 절대 사용 금지: ${options.avoidHanja.join(", ")}`
+    : "";
+  // 성별을 헤더 줄에만 두면 무시된다(실제로 '여자' 요청에 '정우'가 나왔다).
+  // 번호가 붙은 규칙으로 올려 다른 조건과 같은 무게로 읽히게 한다.
+  const genderRule =
+    options.gender === "남자" || options.gender === "여자"
+      ? `${options.gender} 아이의 이름입니다. ${options.gender === "남자" ? "여자" : "남자"} 이름으로 쓰이는 이름은 제외`
+      : "성별이 정해지지 않았으므로 남녀 모두에게 무난한 이름 위주";
+
+  const prompt = `성씨: ${options.surname} | 부족한 오행: ${options.ohang.join("/")} ${dolrimjaText} ${moodText}
 
 아래 조건을 반드시 지켜주세요:
-1. 이름은 성씨 제외 두 글자만 출력 (예: 성씨가 박이면 "준서"만, "박준서" 절대 금지)
-2. 두 글자 이름 ${NAMES_PER_CALL}개 생성
-3. 다양한 이름 생성 (비슷한 이름 반복 금지)
+1. ${genderRule}
+2. 이름은 성씨 제외 두 글자만 출력 (예: 성씨가 박이면 "준서"만, "박준서" 절대 금지)
+3. hangul과 hanja의 독음이 반드시 일치할 것
+   (예: 銀星은 "은성"이지 "은별"이 아니다. 晶雲은 "정운"이지 "정우"가 아니다)
+4. 두 글자 이름 ${NAMES_PER_CALL}개 생성, 비슷한 이름 반복 금지${avoidHanjaText}
 
 출력형식:
 {"names":[{"hangul":"두글자이름","hanja":"한자두글자","reason":"50자이내이유"}]}
 
 예시: {"hangul":"서윤","hanja":"瑞潤","reason":"상서로운 기운과 윤택함을 지닌 덕망 있는 인재"}`;
 
-  const { text, cost } = await callAI(model, SYSTEM_PROMPT, prompt, NAMES_MAX_TOKENS);
+  const { text, cost } = await callAI(
+    model,
+    SYSTEM_PROMPT,
+    prompt,
+    NAMES_MAX_TOKENS,
+  );
   try {
-    const result = JSON.parse(text.replace(/```json|```/g, '').trim());
+    const result = JSON.parse(text.replace(/```json|```/g, "").trim());
     return { names: Array.isArray(result.names) ? result.names : [], cost };
   } catch {
     // 대부분 max_tokens 초과로 응답이 잘린 경우다. 앞부분만 남겨 원인을 판별할 수 있게 한다.
@@ -404,26 +751,29 @@ export async function generateDetailedReason(
   // AI가 오행·획수·길흉을 추측하지 않도록, 이미 계산이 끝난 값을 모두 프롬프트에 명시한다.
   const describe = (n: RichName, idx: number) => {
     const chain = [...(surname.hangul + n.hangul)]
-      .map((char, i) => `${n.soundOhangList[i] ?? '?'}(${char})`)
-      .join(' → ');
-    const grids = (['원격', '형격', '이격', '정격', '총격'] as const)
-      .map((key) => `${key} ${n.grids[key].stroke}획(${ll(n.grids[key].luck)}, ${n.grids[key].description})`)
-      .join(' / ');
+      .map((char, i) => `${n.soundOhangList[i] ?? "?"}(${char})`)
+      .join(" → ");
+    const grids = (["원격", "형격", "이격", "정격", "총격"] as const)
+      .map(
+        (key) =>
+          `${key} ${n.grids[key].stroke}획(${ll(n.grids[key].luck)}, ${n.grids[key].description})`,
+      )
+      .join(" / ");
 
     return [
       `${idx + 1}. ${surname.hangul}${n.hangul} (${surname.hanja}${n.hanja}) — 종합 ${n.score}점`,
-      `   ${n.hanja1}: 훈 [${buildMeaningsDisplay(n.meaning1, n.hangul1).join(', ')}], 오행 ${n.ohang1 || '미상'}`,
-      `   ${n.hanja2}: 훈 [${buildMeaningsDisplay(n.meaning2, n.hangul2).join(', ')}], 오행 ${n.ohang2 || '미상'}`,
+      `   ${n.hanja1}: 훈 [${buildMeaningsDisplay(n.meaning1, n.hangul1).join(", ")}], 오행 ${n.ohang1 || "미상"}`,
+      `   ${n.hanja2}: 훈 [${buildMeaningsDisplay(n.meaning2, n.hangul2).join(", ")}], 오행 ${n.ohang2 || "미상"}`,
       `   사격: ${grids}`,
       `   총획: ${n.grids.총격.rawStroke}획`,
       `   발음오행: ${chain}`,
-      `   발음오행 판정: ${n.soundDetails.join(', ') || '없음'}`,
+      `   발음오행 판정: ${n.soundDetails.join(", ") || "없음"}`,
       `   기본 해설: ${n.reason}`,
-    ].join('\n');
+    ].join("\n");
   };
 
   const makePrompt = (batch: RichName[]) => {
-    const nameList = batch.map(describe).join('\n\n');
+    const nameList = batch.map(describe).join("\n\n");
     // 필드별로 문체를 다르게 요구한다.
     // summary/categories/tags는 카드 UI에 짧게 노출되므로 따뜻한 구어체를 유지하고,
     // detail은 유료 상세 페이지의 본문이므로 근거를 제시하는 분석체로 작성한다.
@@ -451,7 +801,7 @@ export async function generateDetailedReason(
   호칭·인사말·맺음말 금지. 편지·축사 형식 금지 (예: "사랑하는 OO에게" 같은 서두 금지).
   기원이나 감탄이 아니라, 근거와 해석만 서술.
 
-이 아이의 사주에 부족한 기운: ${lacking.join(', ') || '없음'}
+이 아이의 사주에 부족한 기운: ${lacking.join(", ") || "없음"}
 
 [분석 데이터]
 ${nameList}
@@ -470,9 +820,33 @@ ${nameList}
 }]}`;
   };
 
-  const parse = (text: string): (NameDetail & { hangul: string })[] => {
-    try { return JSON.parse(text.replace(/```json|```/g, '').trim()).results ?? []; }
-    catch { return []; }
+  // 파싱 실패를 조용히 삼키면 "왜 전부 재시도했는지"를 알 수 없다.
+  // 응답 길이와 끝부분을 남겨 상한 초과로 잘린 것인지 구분할 수 있게 한다.
+  const parse = (
+    text: string,
+    label: string,
+  ): (NameDetail & { hangul: string })[] => {
+    try {
+      const data = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const results = data?.results;
+      // JSON은 멀쩡한데 results가 없는 경우가 있다. 최상위 형태를 남겨야
+      // 모델이 어떤 모양으로 답했는지(배열 직접 반환, 다른 키 이름 등) 알 수 있다.
+      if (!Array.isArray(results)) {
+        const shape = Array.isArray(data)
+          ? `array(${data.length})`
+          : `keys=${Object.keys(data ?? {}).join("|") || "없음"}`;
+        console.error(
+          `[generateDetailedReason] results 없음 (${label}, 길이=${text.length}, ${shape}): ${text.slice(0, 200)}`,
+        );
+        return [];
+      }
+      return results;
+    } catch {
+      console.error(
+        `[generateDetailedReason] JSON 파싱 실패 (${label}, 길이=${text.length}): …${text.slice(-120)}`,
+      );
+      return [];
+    }
   };
 
   // 이름 1개당 detail 1200자 + summary/categories/tags 로 약 1,400자를 생성한다.
@@ -483,31 +857,64 @@ ${nameList}
   const map: Record<string, NameDetail> = {};
 
   // 1차: 병렬 배치 실행
-  const batches = Array.from({ length: Math.ceil(names.length / BATCH) }, (_, bi) =>
-    callAI(model, '', makePrompt(names.slice(bi * BATCH, (bi + 1) * BATCH)), 16384),
+  const batches = Array.from(
+    { length: Math.ceil(names.length / BATCH) },
+    (_, bi) =>
+      callAI(
+        model,
+        "",
+        makePrompt(names.slice(bi * BATCH, (bi + 1) * BATCH)),
+        16384,
+      ),
   );
   const results = await Promise.all(batches);
   totalCost += results.reduce((s, r) => s + r.cost, 0);
 
   const isValidTag = (t: string) => /^#[가-힣a-zA-Z0-9]{1,8}$/.test(t);
   const normalizeTags = (raw: string[]) =>
-    raw.map((t) => { const s = t.trim(); return s.startsWith('#') ? s : `#${s}`; }).filter(isValidTag);
+    raw
+      .map((t) => {
+        const s = t.trim();
+        return s.startsWith("#") ? s : `#${s}`;
+      })
+      .filter(isValidTag);
 
-  for (const r of results.flatMap((res) => parse(res.text))) {
-    map[r.hangul] = { summary: r.summary, categories: r.categories, detail: r.detail, tags: normalizeTags(r.tags ?? []) };
+  for (const [bi, res] of results.entries()) {
+    for (const r of parse(res.text, `배치 ${bi + 1}`)) {
+      map[r.hangul] = {
+        summary: r.summary,
+        categories: r.categories,
+        detail: r.detail,
+        tags: normalizeTags(r.tags ?? []),
+      };
+    }
   }
 
-  // 2차: 누락 또는 유효 태그 부족(<2) 이름 개별 재시도
-  const missing = names.filter((n) => !map[n.hangul] || (map[n.hangul].tags?.length ?? 0) < 2);
+  // 2차: 누락 또는 유효 태그 부족(<2) 이름 개별 재시도.
+  // 두 원인을 나눠 세야 배치가 통째로 실패한 것인지, 태그 규칙이 과한 것인지 갈린다.
+  const notReturned = names.filter((n) => !map[n.hangul]);
+  const poorTags = names.filter(
+    (n) => map[n.hangul] && (map[n.hangul].tags?.length ?? 0) < 2,
+  );
+  const missing = [...notReturned, ...poorTags];
   if (missing.length > 0) {
-    console.warn(`[generateDetailedReason] ${missing.length}개 누락/태그부족, 재시도:`, missing.map((n) => n.hangul));
+    console.warn(
+      `[generateDetailedReason] 재시도 ${missing.length}개 (미응답 ${notReturned.length} / 태그부족 ${poorTags.length}):`,
+      missing.map((n) => n.hangul),
+    );
     for (const n of missing) {
       try {
-        const retry = await callAI(model, '', makePrompt([n]), 4096);
+        // 1200자 본문에 categories·tags까지 더하면 한국어 기준 4,096 토큰을
+        // 넘길 수 있다. 상한을 넘기면 잘린 JSON이 와서 이름 하나가 통째로 빈다.
+        // 생성된 만큼만 과금되므로 상한을 넉넉히 두는 편이 안전하다.
+        const retry = await callAI(model, "", makePrompt([n]), 8192);
         totalCost += retry.cost;
-        const parsed = parse(retry.text);
+        const parsed = parse(retry.text, `재시도 ${n.hangul}`);
         if (parsed[0]) {
-          map[n.hangul] = { ...parsed[0], tags: normalizeTags(parsed[0].tags ?? []) };
+          map[n.hangul] = {
+            ...parsed[0],
+            tags: normalizeTags(parsed[0].tags ?? []),
+          };
         } else console.warn(`[generateDetailedReason] 재시도 실패:`, n.hangul);
       } catch (e) {
         console.error(`[generateDetailedReason] 재시도 오류 (${n.hangul}):`, e);
@@ -515,28 +922,83 @@ ${nameList}
     }
   }
 
+  // 끝내 해설을 못 받은 이름은 결제한 사용자에게 빈 상세 페이지로 보인다.
+  // 조용히 지나가면 알 수 없으므로 남긴다. (호출부가 이름을 제외할지 판단)
+  const empty = names.filter((n) => !map[n.hangul]);
+  if (empty.length > 0) {
+    console.error(
+      `[generateDetailedReason] 해설 생성 실패로 빈 상세가 되는 이름:`,
+      empty.map((n) => n.hangul),
+    );
+  }
+
   return { map, cost: totalCost };
 }
 
 // Free 전용 경량 AI 호출 — summary + tags만 생성
 export async function generateBriefDetail(
-  name: { hangul: string; hanja1: string; hanja2: string; meaning1: string[]; meaning2: string[]; reason: string },
-  model = MODEL_BRIEF,
+  name: {
+    hangul: string;
+    hanja1: string;
+    hanja2: string;
+    meaning1: string[];
+    meaning2: string[];
+    reason: string;
+  },
+  // 성별을 넘기지 않으면 AI가 한자 뜻만 보고 "소녀/소년"을 임의로 붙인다.
+  // 무료 결과는 결제 전환이 일어나는 화면이라 성별이 어긋나면 신뢰가 깨진다.
+  options: { gender?: "남자" | "여자" | "모름"; model?: string } = {},
 ): Promise<{ summary: string; tags: string[]; cost: number }> {
-  const prompt = `이름 ${name.hangul} (${name.hanja1}${name.hanja2}): ${name.hanja1}(${name.meaning1[0] ?? ''}) + ${name.hanja2}(${name.meaning2[0] ?? ''}) - ${name.reason}
+  const { gender, model = MODEL_BRIEF } = options;
+  const genderText =
+    gender === "남자" || gender === "여자"
+      ? `\n\n이 아이는 ${gender}입니다. 성별과 어긋나는 표현을 쓰지 마세요.`
+      : '\n\n성별은 알 수 없습니다. 성별을 단정하는 표현("소년", "소녀" 등)을 쓰지 마세요.';
+
+  const prompt = `이름 ${name.hangul} (${name.hanja1}${name.hanja2}): ${name.hanja1}(${name.meaning1[0] ?? ""}) + ${name.hanja2}(${name.meaning2[0] ?? ""}) - ${name.reason}${genderText}
 
 아래 두 가지만 JSON으로 작성하세요.
 - summary: 20자 내외 한 줄 요약 (따뜻하고 자연스럽게, 순한글)
-- tags: #태그 4개 배열
+  위 한자의 뜻에서 출발해 이 이름에만 해당하는 내용을 쓰세요.
+- tags: #태그 4개 배열 (이름 자체나 한자를 태그로 쓰지 말 것)
 
-{"summary":"따뜻한 햇살처럼 밝고 온화한 아이","tags":["#태그1","#태그2","#태그3","#태그4"]}`;
+아래는 값이 아니라 자리표시자입니다. 문구를 그대로 복사하지 마세요.
+{"summary":"<이 이름에 맞는 한 줄 요약>","tags":["<특징1>","<특징2>","<특징3>","<특징4>"]}`;
 
-  const { text, cost } = await callAI(model, '', prompt, 256);
+  const { text, cost } = await callAI(model, "", prompt, 256);
   try {
-    const r = JSON.parse(text.replace(/```json|```/g, '').trim()) as { summary: string; tags: string[] };
+    const r = JSON.parse(text.replace(/```json|```/g, "").trim()) as {
+      summary: string;
+      tags: string[];
+    };
     const isValidTag = (t: string) => /^#[가-힣a-zA-Z0-9]{1,8}$/.test(t);
-    const tags = (r.tags ?? []).map((t) => { const s = t.trim(); return s.startsWith('#') ? s : `#${s}`; }).filter(isValidTag);
-    return { summary: r.summary ?? name.reason, tags, cost };
+    // "#소현"처럼 이름을 그대로 옮긴 태그는 정보가 없다. 프롬프트로도 막지만
+    // 지시를 어기는 경우가 있어 코드에서도 걸러낸다.
+    const isSelfReferential = (t: string) =>
+      t === `#${name.hangul}` || t === `#${name.hanja1}${name.hanja2}`;
+    const tags = (r.tags ?? [])
+      .map((t) => {
+        const s = t.trim();
+        return s.startsWith("#") ? s : `#${s}`;
+      })
+      .filter((t) => isValidTag(t) && !isSelfReferential(t));
+
+    // 예시 문구를 그대로 베껴오는 경우가 있다(gpt-4o에서도 동일하게 발생).
+    // 자리표시자를 남긴 응답과 과거 예시문을 함께 막고, 걸리면 기본 해설로 되돌린다.
+    const COPIED_EXAMPLES = ["따뜻한 햇살처럼 밝고 온화한 아이"];
+    const raw = (r.summary ?? "").trim();
+    const isPlaceholder = raw.includes("<") || raw.includes(">");
+    const summary =
+      !raw || isPlaceholder || COPIED_EXAMPLES.includes(raw)
+        ? name.reason
+        : raw;
+    if (raw && summary !== raw) {
+      console.warn(
+        `[generateBriefDetail] 예시/자리표시자 복사 감지 (${name.hangul}, model=${model}): ${raw}`,
+      );
+    }
+
+    return { summary, tags, cost };
   } catch {
     // 폴백(reason 그대로 사용)이 조용히 동작하면 태그 없는 결과가 왜 나왔는지 추적할 수 없다.
     console.error(
@@ -555,16 +1017,16 @@ export async function fetchSurveyAndSurname(
   requestId: string,
 ): Promise<{ survey: SurveyRow; surname: SurnameRow } | null> {
   const { data: survey, error: sErr } = await supabase
-    .from('naming_surveys')
-    .select('*')
-    .eq('request_id', requestId)
+    .from("naming_surveys")
+    .select("*")
+    .eq("request_id", requestId)
     .single();
   if (sErr || !survey) return null;
 
   const { data: surname, error: nErr } = await supabase
-    .from('surnames')
-    .select('id, hangul, hanja, won_stroke')
-    .eq('id', (survey as SurveyRow).surname_id)
+    .from("surnames")
+    .select("id, hangul, hanja, won_stroke")
+    .eq("id", (survey as SurveyRow).surname_id)
     .single();
   if (nErr || !surname) return null;
 
@@ -581,21 +1043,104 @@ export async function collectNames(params: {
   model: string;
   usedNames: Set<string>;
 }): Promise<{ names: RichName[]; cost: number }> {
-  const { supabase, surname, survey, lacking, target, maxAttempts, model, usedNames } = params;
+  const {
+    supabase,
+    surname,
+    survey,
+    lacking,
+    target,
+    maxAttempts,
+    model,
+    usedNames,
+  } = params;
   const results: RichName[] = [];
   let totalCost = 0;
   let attempts = 0;
 
   // 형제이름에서 성씨(첫 글자) 제거 후 글자 추출, 돌림자는 avoid에서 제외
-  const siblingGivenChars = (survey.sibling_names ?? []).flatMap((name) =>
-    [...(name.startsWith(surname.hangul) ? name.slice(surname.hangul.length) : name)],
-  ).filter((c) => c !== survey.generation_name);
-  const avoidChars = new Set([...(survey.avoid_hangul ?? []), ...siblingGivenChars]);
+  const siblingGivenChars = (survey.sibling_names ?? [])
+    .flatMap((name) => [
+      ...(name.startsWith(surname.hangul)
+        ? name.slice(surname.hangul.length)
+        : name),
+    ])
+    .filter((c) => c !== survey.generation_name);
+  const avoidChars = new Set([
+    ...(survey.avoid_hangul ?? []),
+    ...siblingGivenChars,
+  ]);
+
+  // 기피 한자는 id로 저장돼 있어 글자로 풀어야 비교할 수 있다.
+  // 재시도해도 값이 같으니 루프 밖에서 한 번만 조회한다.
+  //
+  // NFKC로 정규화해서 비교하는 이유:
+  // hanja 테이블에는 눈에 같아 보이지만 코드포인트가 다른 행이 282쌍 있다.
+  // (호환 한자 U+F9xx vs 통합 한자 U+4Exx — 예: 不 U+F967 / U+4E0D)
+  // 검색 RPC는 is_common 우선으로 중복을 걸러 사용자에게 호환 한자를 보여주는데,
+  // AI는 통합 한자를 출력한다. 원문 그대로 비교하면 서로 다른 글자로 취급돼
+  // 사용자가 배제한 글자가 결과에 그대로 나온다.
+  const avoidHanjaIds = survey.avoid_hanja_id ?? [];
+  const avoidHanjaChars = new Set<string>();
+  const avoidHanjaDisplay: string[] = [];
+  if (avoidHanjaIds.length > 0) {
+    const { data, error } = await supabase
+      .from("hanja")
+      .select("hanja, hangul_main, meanings")
+      .in("id", avoidHanjaIds);
+
+    // 조회에 실패하면 기피 한자가 그대로 결과에 섞인다.
+    // 사용자가 명시적으로 배제한 글자라 조용히 넘어가면 안 된다.
+    if (error) {
+      console.error(`[collectNames] 기피 한자 조회 실패: ${error.message}`);
+      throw new Error("기피 한자 정보를 불러오지 못했습니다.");
+    }
+
+    const picked = (data ?? []) as HanjaVariantRow[];
+    for (const row of picked) {
+      avoidHanjaChars.add(row.hanja.normalize("NFKC"));
+      avoidHanjaDisplay.push(row.hanja);
+    }
+
+    // 이체자까지 확장한다. 勛(U+52DB)을 골랐는데 勳(U+52F3)이 나오면
+    // 사용자에겐 같은 글자라 약속을 어긴 것으로 읽힌다. 둘은 별개 코드포인트라
+    // NFKC로도 합쳐지지 않는다.
+    // 이체자는 독음이 같으므로(勛·勳·勲 모두 '훈') 같은 독음 행만 훑으면 되고,
+    // DB가 meanings에 관계를 적어둔 것을 단서로 쓴다. (勛 → "공[勳]", 勲 → "勳의")
+    const readings = [...new Set(picked.map((r) => r.hangul_main))].filter(
+      Boolean,
+    );
+    if (readings.length > 0) {
+      const { data: sameReading } = await supabase
+        .from("hanja")
+        .select("hanja, hangul_main, meanings")
+        .in("hangul_main", readings);
+
+      // 관계를 전이적으로 닫는다. 勛은 "공[勳]", 勲는 "勳의"라 둘 다 제3의
+      // 글자만 가리킨다. 직접 연결만 보면 형제인 勛↔勲를 놓친다.
+      const pool = (sameReading ?? []) as HanjaVariantRow[];
+      const chosen = [...picked];
+      for (let grew = true; grew; ) {
+        grew = false;
+        for (const cand of pool) {
+          const key = cand.hanja.normalize("NFKC");
+          if (avoidHanjaChars.has(key)) continue;
+          if (!chosen.some((c) => isVariantOf(c, cand))) continue;
+
+          avoidHanjaChars.add(key);
+          avoidHanjaDisplay.push(cand.hanja);
+          chosen.push(cand);
+          grew = true;
+        }
+      }
+    }
+  }
 
   const sungStrokes = [surname.won_stroke];
 
   while (results.length < target && attempts < maxAttempts) {
-    const safeMoods = (survey.mood_keywords ?? []).filter(k => ALLOWED_MOOD_KEYWORDS.includes(k));
+    const safeMoods = (survey.mood_keywords ?? []).filter((k) =>
+      ALLOWED_MOOD_KEYWORDS.includes(k),
+    );
     const { names: aiNames, cost } = await generateNames({
       surname: surname.hangul,
       gender: survey.gender,
@@ -603,6 +1148,8 @@ export async function collectNames(params: {
       dolrimja: survey.generation_name ?? undefined,
       model,
       moodKeywords: safeMoods,
+      // 프롬프트에는 사용자가 화면에서 본 글자 그대로 보여준다.
+      avoidHanja: avoidHanjaDisplay,
     });
     totalCost += cost;
 
@@ -616,12 +1163,33 @@ export async function collectNames(params: {
     // 요청 대비 필터 통과율. 요청 개수를 바꾸면 이 비율의 기준선도 달라지므로 함께 남긴다.
     const beforeCount = results.length;
 
+    let avoidedByHanja = 0;
+    // 한글과 한자 독음이 어긋나 탈락한 수. AI의 실제 오류율을 추적한다.
+    let mismatchedReading = 0;
+    // 탈락한 조합의 표본. 숫자만으로는 AI가 틀린 것인지, 두음법칙 표가
+    // 불완전해 정상 이름을 버린 것인지 구분할 수 없다.
+    const mismatchSamples: string[] = [];
+
     const valid = aiNames.filter((n) => {
       if (usedNames.has(n.hangul)) return false;
       const chars = [...n.hangul];
       if (chars.length !== 2 || chars[0] === chars[1]) return false;
-      if (avoidChars.size > 0 && chars.some(c => avoidChars.has(c))) return false;
-      return !blacklist.some((b) => n.hangul === (b.length === 3 ? b.slice(1) : b));
+      if (avoidChars.size > 0 && chars.some((c) => avoidChars.has(c)))
+        return false;
+      // 사용자가 배제한 한자가 한 글자라도 있으면 탈락시킨다.
+      // 후보 쪽도 같은 방식으로 정규화해야 코드포인트 차이를 흡수할 수 있다.
+      if (
+        avoidHanjaChars.size > 0 &&
+        [...(n.hanja ?? "")].some((c) =>
+          avoidHanjaChars.has(c.normalize("NFKC")),
+        )
+      ) {
+        avoidedByHanja++;
+        return false;
+      }
+      return !blacklist.some(
+        (b) => n.hangul === (b.length === 3 ? b.slice(1) : b),
+      );
     });
 
     const uniqueChars = new Set<string>();
@@ -632,12 +1200,19 @@ export async function collectNames(params: {
       }
     }
 
-    let hanjaRows: { hanja: string; won_stroke: number; ohang: string; meanings: string[]; hangul_main: string; hangul: string[] }[] = [];
+    let hanjaRows: {
+      hanja: string;
+      won_stroke: number;
+      ohang: string;
+      meanings: string[];
+      hangul_main: string;
+      hangul: string[];
+    }[] = [];
     if (uniqueChars.size > 0) {
       const { data } = await supabase
-        .from('hanja')
-        .select('hanja, won_stroke, ohang, meanings, hangul_main, hangul')
-        .in('hanja', Array.from(uniqueChars));
+        .from("hanja")
+        .select("hanja, won_stroke, ohang, meanings, hangul_main, hangul")
+        .in("hanja", Array.from(uniqueChars));
       hanjaRows = (data ?? []) as typeof hanjaRows;
     }
     const hanjaMap = new Map(hanjaRows.map((r) => [r.hanja, r]));
@@ -646,29 +1221,68 @@ export async function collectNames(params: {
       if (usedNames.has(n.hangul)) continue;
       if (!n.hanja || [...n.hanja].length !== 2) continue;
       const [c1, c2] = [...n.hanja];
-      const d1 = hanjaMap.get(c1), d2 = hanjaMap.get(c2);
+      const d1 = hanjaMap.get(c1),
+        d2 = hanjaMap.get(c2);
       if (!d1 || !d2) continue;
+
+      // 한글 이름과 한자 독음이 맞는지 확인한다.
+      // AI가 둘을 따로 만들어 어긋나는 경우가 있고(銀星→"은별"), 모델을
+      // 올려도 사라지지 않으므로 여기서 결정적으로 걸러낸다.
+      //
+      // 한계: hanja.hangul에 이독음이 빠진 행이 있어 정상 이름을 버릴 때가 있다.
+      // (宅은 ['댁']만 있어 '택'이 탈락 — 실제로는 택이 주 독음)
+      // 코드에 독음 사본을 두면 DB와 어긋나므로 손대지 않는다. 고칠 곳은 DB다.
+      // 오탐의 대가는 후보 1개 손실뿐이라(풀 22~47개, 필요 20개) 감수한다.
+      const [g1, g2] = [...n.hangul];
+      if (!isReadingOf(g1, d1) || !isReadingOf(g2, d2)) {
+        mismatchedReading++;
+        if (mismatchSamples.length < 10) {
+          // AI가 낸 한글, 한자, DB가 아는 독음을 함께 남겨야 판단할 수 있다.
+          const bad1 = isReadingOf(g1, d1) ? "" : "*";
+          const bad2 = isReadingOf(g2, d2) ? "" : "*";
+          mismatchSamples.push(
+            `${n.hangul}/${d1.hanja}${d2.hanja}(${bad1}${d1.hangul_main}${bad2}${d2.hangul_main})`,
+          );
+        }
+        continue;
+      }
 
       const grids = getFourGrids(sungStrokes, d1.won_stroke, d2.won_stroke);
       if (!grids.isTwoGood) continue;
 
       usedNames.add(n.hangul);
       const sound = calcSoundScore(surname.hangul, n.hangul);
-      const reading1 = d1.hangul_main || d1.hangul?.[0] || '';
-      const reading2 = d2.hangul_main || d2.hangul?.[0] || '';
+      const reading1 = d1.hangul_main || d1.hangul?.[0] || "";
+      const reading2 = d2.hangul_main || d2.hangul?.[0] || "";
       results.push({
-        hangul: n.hangul, hanja: `${d1.hanja}${d2.hanja}`,
-        hanja1: d1.hanja, hanja2: d2.hanja,
+        hangul: n.hangul,
+        hanja: `${d1.hanja}${d2.hanja}`,
+        hanja1: d1.hanja,
+        hanja2: d2.hanja,
         hangul1: reading1,
         hangul2: reading2,
-        meaning1: d1.meanings ?? [], meaning2: d2.meanings ?? [],
-        reason: n.reason, score: calcScore(grids, d1.ohang, d2.ohang, lacking),
-        grids, ohang1: d1.ohang, ohang2: d2.ohang,
-        soundScore: sound.score, soundOhangList: sound.ohangList, soundDetails: sound.details,
+        meaning1: d1.meanings ?? [],
+        meaning2: d2.meanings ?? [],
+        reason: n.reason,
+        score: calcScore(grids, d1.ohang, d2.ohang, lacking),
+        grids,
+        ohang1: d1.ohang,
+        ohang2: d2.ohang,
+        soundScore: sound.score,
+        soundOhangList: sound.ohangList,
+        soundDetails: sound.details,
       });
     }
+    // 탈락한 조합을 남겨 필터가 옳게 걸렀는지 눈으로 확인할 수 있게 한다.
+    // *는 그 글자의 독음이 어긋났다는 표시. 예: 새나/彩娜(*채나)
+    if (mismatchSamples.length > 0) {
+      console.log(
+        `[collectNames] badReading 표본: ${mismatchSamples.join(", ")}`,
+      );
+    }
+    // avoidedHanja가 크면 프롬프트의 금지 지시가 안 먹히고 있다는 뜻이다.
     console.log(
-      `[collectNames] requested=${NAMES_PER_CALL} ai=${aiNames.length} passed=${results.length - beforeCount} total=${results.length}/${target} attempt=${attempts + 1}`,
+      `[collectNames] requested=${NAMES_PER_CALL} ai=${aiNames.length} passed=${results.length - beforeCount} avoidedHanja=${avoidedByHanja} badReading=${mismatchedReading} total=${results.length}/${target} attempt=${attempts + 1}`,
     );
     attempts++;
   }
@@ -679,23 +1293,44 @@ export async function collectNames(params: {
 // Shape Builders
 // ==========================================================
 
-export const ll = (l: string) => l === 'good' ? '吉' : l === 'bad' ? '凶' : '中';
+export const ll = (l: string) =>
+  l === "good" ? "吉" : l === "bad" ? "凶" : "中";
 
 export function buildSajuSummary(name: RichName, lacking: string[]): string {
   const supp: string[] = [];
-  if (name.ohang1 && lacking.includes(name.ohang1)) supp.push(`'${name.hanja1}'의 ${name.ohang1} 기운`);
-  if (name.ohang2 && lacking.includes(name.ohang2)) supp.push(`'${name.hanja2}'의 ${name.ohang2} 기운`);
+  if (name.ohang1 && lacking.includes(name.ohang1))
+    supp.push(`'${name.hanja1}'의 ${name.ohang1} 기운`);
+  if (name.ohang2 && lacking.includes(name.ohang2))
+    supp.push(`'${name.hanja2}'의 ${name.ohang2} 기운`);
   return supp.length > 0
-    ? `부족한 기운(${lacking.join(', ')})을 ${supp.join(', ')}으로 보완`
-    : `부족한 기운(${lacking.join(', ') || '없음'}) 보완 없음`;
+    ? `부족한 기운(${lacking.join(", ")})을 ${supp.join(", ")}으로 보완`
+    : `부족한 기운(${lacking.join(", ") || "없음"}) 보완 없음`;
 }
 
-type OhangKey = '木' | '火' | '土' | '金' | '水';
+type OhangKey = "木" | "火" | "土" | "金" | "水";
 
 // 오행별 형용사 + 조사 결합형 — 문장 템플릿 조립용 (하드코딩, AI 미사용)
-const OHANG_ADJ:     Record<OhangKey, string> = { 木: '성장하는', 火: '따뜻한', 土: '안정적인', 金: '단단한', 水: '지혜로운' };
-const OHANG_SUBJECT: Record<OhangKey, string> = { 木: '나무가',   火: '불이',   土: '땅이',     金: '쇠가',   水: '물이' };
-const OHANG_OBJECT:  Record<OhangKey, string> = { 木: '나무를',   火: '불을',   土: '땅을',     金: '쇠를',   水: '물을' };
+const OHANG_ADJ: Record<OhangKey, string> = {
+  木: "성장하는",
+  火: "따뜻한",
+  土: "안정적인",
+  金: "단단한",
+  水: "지혜로운",
+};
+const OHANG_SUBJECT: Record<OhangKey, string> = {
+  木: "나무가",
+  火: "불이",
+  土: "땅이",
+  金: "쇠가",
+  水: "물이",
+};
+const OHANG_OBJECT: Record<OhangKey, string> = {
+  木: "나무를",
+  火: "불을",
+  土: "땅을",
+  金: "쇠를",
+  水: "물을",
+};
 
 function isOhangKey(v: string | null | undefined): v is OhangKey {
   return !!v && v in OHANG_ADJ;
@@ -704,24 +1339,30 @@ function isOhangKey(v: string | null | undefined): v is OhangKey {
 // 이름의 두 오행(ohang1, ohang2)이 사주 부족 오행을 얼마나 보완하는지(보완강도)에 따라
 // 미리 정해둔 문장 템플릿을 조립. AI 호출 없이 하드코딩된 규칙으로만 생성한다.
 export function buildOhangSummary(name: RichName, lacking: string[]): string {
-  const el1 = name.ohang1, el2 = name.ohang2;
-  if (!isOhangKey(el1) || !isOhangKey(el2)) return '';
+  const el1 = name.ohang1,
+    el2 = name.ohang2;
+  if (!isOhangKey(el1) || !isOhangKey(el2)) return "";
 
   let base: string;
   if (el1 === el2) {
     base = `${OHANG_ADJ[el1]} ${OHANG_SUBJECT[el1]} 두 글자에 겹쳐 기운이 더욱 깊어지는`;
   } else {
     const relation =
-      OHANG_SHENG_MAP[el1] === el2 || OHANG_SHENG_MAP[el2] === el1 ? '만나 조화를 이루는'
-      : OHANG_KE_MAP[el1] === el2 || OHANG_KE_MAP[el2] === el1     ? '만나 팽팽한 균형을 이루는'
-      :                                                               '만나 어우러지는';
+      OHANG_SHENG_MAP[el1] === el2 || OHANG_SHENG_MAP[el2] === el1
+        ? "만나 조화를 이루는"
+        : OHANG_KE_MAP[el1] === el2 || OHANG_KE_MAP[el2] === el1
+          ? "만나 팽팽한 균형을 이루는"
+          : "만나 어우러지는";
     base = `${OHANG_ADJ[el1]} ${OHANG_SUBJECT[el1]} ${OHANG_ADJ[el2]} ${OHANG_OBJECT[el2]} ${relation}`;
   }
 
   // 보완강도: 이름의 오행 중 사주 부족 오행(lacking)과 겹치는 개수
-  const matchCount = el1 === el2
-    ? (lacking.includes(el1) ? 2 : 0)
-    : [el1, el2].filter((el) => lacking.includes(el)).length;
+  const matchCount =
+    el1 === el2
+      ? lacking.includes(el1)
+        ? 2
+        : 0
+      : [el1, el2].filter((el) => lacking.includes(el)).length;
 
   if (matchCount === 2) {
     return `${base} 좋은 오행 구성이에요. 타고난 사주에 부족한 기운을 두 글자 모두가 채워주는 아주 좋은 궁합이에요.`;
@@ -740,14 +1381,27 @@ export function buildNumerologySummary(name: RichName): string {
     `이격 ${name.grids.이격.stroke}획(${ll(name.grids.이격.luck)})`,
     `정격 ${name.grids.정격.stroke}획(${ll(name.grids.정격.luck)})`,
     `총격 ${name.grids.총격.stroke}획(${ll(name.grids.총격.luck)})`,
-  ].join(' / ');
+  ].join(" / ");
 }
 
-export function buildDetailedExplanation(name: RichName, detail?: NameDetail): string {
+export function buildDetailedExplanation(
+  name: RichName,
+  detail?: NameDetail,
+): string {
   if (!detail) return name.reason;
-  const categoryText = detail.categories.map((c) => `[${c.title}]\n${c.description}`).join('\n\n');
+  const categoryText = detail.categories
+    .map((c) => `[${c.title}]\n${c.description}`)
+    .join("\n\n");
   const detailText = detail.detail?.trim() || name.reason;
-  return [detail.summary, '', categoryText, '', detailText, '', detail.tags.join(' ')].join('\n');
+  return [
+    detail.summary,
+    "",
+    categoryText,
+    "",
+    detailText,
+    "",
+    detail.tags.join(" "),
+  ].join("\n");
 }
 
 // 상세 페이지에서 섹션별로 렌더링할 수 있도록, AI 해설 본문만 뽑아 detail_body에 저장한다.
@@ -756,102 +1410,137 @@ export function buildDetailBody(name: RichName, detail?: NameDetail): string {
   return detail?.detail?.trim() || name.reason;
 }
 
-export function toApiShape(name: RichName, detail: NameDetail | undefined, lacking: string[], sortOrder: number) {
+export function toApiShape(
+  name: RichName,
+  detail: NameDetail | undefined,
+  lacking: string[],
+  sortOrder: number,
+) {
   return {
     sortOrder,
-    hangul: name.hangul, hanja: name.hanja,
-    hanja1: name.hanja1, hanja2: name.hanja2,
-    hangul1: name.hangul1, hangul2: name.hangul2,
-    meaning1: name.meaning1[0] ?? '', meaning2: name.meaning2[0] ?? '',
+    hangul: name.hangul,
+    hanja: name.hanja,
+    hanja1: name.hanja1,
+    hanja2: name.hanja2,
+    hangul1: name.hangul1,
+    hangul2: name.hangul2,
+    meaning1: name.meaning1[0] ?? "",
+    meaning2: name.meaning2[0] ?? "",
     meanings1: buildMeaningsDisplay(name.meaning1, name.hangul1),
     meanings2: buildMeaningsDisplay(name.meaning2, name.hangul2),
     score: name.score,
     grids: name.grids,
-    ohang1: name.ohang1, ohang2: name.ohang2,
-    soundScore: name.soundScore, soundOhangList: name.soundOhangList, soundDetails: name.soundDetails,
-    meaningSummary:      detail?.summary ?? name.reason,
-    sajuSummary:         buildSajuSummary(name, lacking),
-    ohangSummary:        buildOhangSummary(name, lacking),
-    numerologySummary:   buildNumerologySummary(name),
+    ohang1: name.ohang1,
+    ohang2: name.ohang2,
+    soundScore: name.soundScore,
+    soundOhangList: name.soundOhangList,
+    soundDetails: name.soundDetails,
+    meaningSummary: detail?.summary ?? name.reason,
+    sajuSummary: buildSajuSummary(name, lacking),
+    ohangSummary: buildOhangSummary(name, lacking),
+    numerologySummary: buildNumerologySummary(name),
     detailedExplanation: buildDetailedExplanation(name, detail),
-    detailBody:          buildDetailBody(name, detail),
-    totalStrokes:        name.grids.총격.rawStroke,
-    tags:       detail?.tags ?? [],
+    detailBody: buildDetailBody(name, detail),
+    totalStrokes: name.grids.총격.rawStroke,
+    tags: detail?.tags ?? [],
     categories: detail?.categories ?? [],
   };
 }
 
 export function toDbRow(params: {
-  requestId: string; sortOrder: number; isFreeName: boolean;
-  surname: SurnameRow; name: RichName; detail: NameDetail | undefined; lacking: string[];
+  requestId: string;
+  sortOrder: number;
+  isFreeName: boolean;
+  surname: SurnameRow;
+  name: RichName;
+  detail: NameDetail | undefined;
+  lacking: string[];
 }) {
-  const { requestId, sortOrder, isFreeName, surname, name, detail, lacking } = params;
+  const { requestId, sortOrder, isFreeName, surname, name, detail, lacking } =
+    params;
   return {
-    request_id:           requestId,
-    sort_order:           sortOrder,
-    is_free_visible:      isFreeName,
-    name_hangul:          `${surname.hangul}${name.hangul}`,
-    name_hanja:           `${surname.hanja}${name.hanja}`,
-    surname_hangul:       surname.hangul,
-    surname_hanja:        surname.hanja,
-    given_name_hangul:    name.hangul,
-    given_name_hanja:     name.hanja,
-    hanja1:               name.hanja1,   hanja2:  name.hanja2,
-    hangul1:              name.hangul1,  hangul2: name.hangul2,
-    meaning1:             name.meaning1, meaning2: name.meaning2,
-    meaning_summary:      detail?.summary ?? name.reason,
-    saju_summary:         [buildSajuSummary(name, lacking), buildOhangSummary(name, lacking)],
-    numerology_summary:   buildNumerologySummary(name),
+    request_id: requestId,
+    sort_order: sortOrder,
+    is_free_visible: isFreeName,
+    name_hangul: `${surname.hangul}${name.hangul}`,
+    name_hanja: `${surname.hanja}${name.hanja}`,
+    surname_hangul: surname.hangul,
+    surname_hanja: surname.hanja,
+    given_name_hangul: name.hangul,
+    given_name_hanja: name.hanja,
+    hanja1: name.hanja1,
+    hanja2: name.hanja2,
+    hangul1: name.hangul1,
+    hangul2: name.hangul2,
+    meaning1: name.meaning1,
+    meaning2: name.meaning2,
+    meaning_summary: detail?.summary ?? name.reason,
+    saju_summary: [
+      buildSajuSummary(name, lacking),
+      buildOhangSummary(name, lacking),
+    ],
+    numerology_summary: buildNumerologySummary(name),
     detailed_explanation: buildDetailedExplanation(name, detail),
-    detail_body:          buildDetailBody(name, detail),
-    tags:                 detail?.tags ?? [],
-    categories:           detail?.categories ?? [],
-    grids:                name.grids,
-    total_strokes:        name.grids.총격.rawStroke,
-    score:                name.score,
-    ohang1:               name.ohang1 ?? null,
-    ohang2:               name.ohang2 ?? null,
-    sound_score:          name.soundScore,
-    sound_ohang_list:     name.soundOhangList,
-    sound_details:        name.soundDetails,
+    detail_body: buildDetailBody(name, detail),
+    tags: detail?.tags ?? [],
+    categories: detail?.categories ?? [],
+    grids: name.grids,
+    total_strokes: name.grids.총격.rawStroke,
+    score: name.score,
+    ohang1: name.ohang1 ?? null,
+    ohang2: name.ohang2 ?? null,
+    sound_score: name.soundScore,
+    sound_ohang_list: name.soundOhangList,
+    sound_details: name.soundDetails,
   };
 }
 
 // Free 단계 부분 저장 — detail/categories는 빈 값으로 저장, premium 때 UPDATE
 export function toDbRowBrief(params: {
-  requestId: string; sortOrder: number;
-  surname: SurnameRow; name: RichName;
-  summary: string; tags: string[]; lacking: string[];
+  requestId: string;
+  sortOrder: number;
+  surname: SurnameRow;
+  name: RichName;
+  summary: string;
+  tags: string[];
+  lacking: string[];
 }) {
-  const { requestId, sortOrder, surname, name, summary, tags, lacking } = params;
+  const { requestId, sortOrder, surname, name, summary, tags, lacking } =
+    params;
   return {
-    request_id:           requestId,
-    sort_order:           sortOrder,
-    is_free_visible:      true,
-    name_hangul:          `${surname.hangul}${name.hangul}`,
-    name_hanja:           `${surname.hanja}${name.hanja}`,
-    surname_hangul:       surname.hangul,
-    surname_hanja:        surname.hanja,
-    given_name_hangul:    name.hangul,
-    given_name_hanja:     name.hanja,
-    hanja1:               name.hanja1,   hanja2:  name.hanja2,
-    hangul1:              name.hangul1,  hangul2: name.hangul2,
-    meaning1:             name.meaning1, meaning2: name.meaning2,
-    meaning_summary:      summary,
-    saju_summary:         [buildSajuSummary(name, lacking), buildOhangSummary(name, lacking)],
-    numerology_summary:   buildNumerologySummary(name),
-    detailed_explanation: '',
-    detail_body:          '',
+    request_id: requestId,
+    sort_order: sortOrder,
+    is_free_visible: true,
+    name_hangul: `${surname.hangul}${name.hangul}`,
+    name_hanja: `${surname.hanja}${name.hanja}`,
+    surname_hangul: surname.hangul,
+    surname_hanja: surname.hanja,
+    given_name_hangul: name.hangul,
+    given_name_hanja: name.hanja,
+    hanja1: name.hanja1,
+    hanja2: name.hanja2,
+    hangul1: name.hangul1,
+    hangul2: name.hangul2,
+    meaning1: name.meaning1,
+    meaning2: name.meaning2,
+    meaning_summary: summary,
+    saju_summary: [
+      buildSajuSummary(name, lacking),
+      buildOhangSummary(name, lacking),
+    ],
+    numerology_summary: buildNumerologySummary(name),
+    detailed_explanation: "",
+    detail_body: "",
     tags,
-    categories:           [],
-    grids:                name.grids,
-    total_strokes:        name.grids.총격.rawStroke,
-    score:                name.score,
-    ohang1:               name.ohang1 ?? null,
-    ohang2:               name.ohang2 ?? null,
-    sound_score:          name.soundScore,
-    sound_ohang_list:     name.soundOhangList,
-    sound_details:        name.soundDetails,
+    categories: [],
+    grids: name.grids,
+    total_strokes: name.grids.총격.rawStroke,
+    score: name.score,
+    ohang1: name.ohang1 ?? null,
+    ohang2: name.ohang2 ?? null,
+    sound_score: name.soundScore,
+    sound_ohang_list: name.soundOhangList,
+    sound_details: name.soundDetails,
   };
 }
 
@@ -860,33 +1549,36 @@ export function toApiShapeFromDb(row: Record<string, unknown>) {
   const m2 = (row.meaning2 as string[]) ?? [];
   const saju = (row.saju_summary as string[]) ?? [];
   return {
-    sortOrder:           row.sort_order as number,
-    hangul:              row.given_name_hangul as string,
-    hanja:               row.given_name_hanja as string,
-    hanja1:              (row.hanja1 as string) ?? '',
-    hanja2:              (row.hanja2 as string) ?? '',
-    hangul1:             (row.hangul1 as string) ?? '',
-    hangul2:             (row.hangul2 as string) ?? '',
-    meaning1:            m1[0] ?? '',
-    meaning2:            m2[0] ?? '',
-    meanings1:           buildMeaningsDisplay(m1, (row.hangul1 as string) ?? ''),
-    meanings2:           buildMeaningsDisplay(m2, (row.hangul2 as string) ?? ''),
-    grids:               (row.grids as Grids) ?? {},
-    meaningSummary:      row.meaning_summary as string,
-    sajuSummary:         saju[0] ?? '',
-    ohangSummary:        saju[1] ?? '',
-    numerologySummary:   row.numerology_summary as string,
+    sortOrder: row.sort_order as number,
+    hangul: row.given_name_hangul as string,
+    hanja: row.given_name_hanja as string,
+    hanja1: (row.hanja1 as string) ?? "",
+    hanja2: (row.hanja2 as string) ?? "",
+    hangul1: (row.hangul1 as string) ?? "",
+    hangul2: (row.hangul2 as string) ?? "",
+    meaning1: m1[0] ?? "",
+    meaning2: m2[0] ?? "",
+    meanings1: buildMeaningsDisplay(m1, (row.hangul1 as string) ?? ""),
+    meanings2: buildMeaningsDisplay(m2, (row.hangul2 as string) ?? ""),
+    grids: (row.grids as Grids) ?? {},
+    meaningSummary: row.meaning_summary as string,
+    sajuSummary: saju[0] ?? "",
+    ohangSummary: saju[1] ?? "",
+    numerologySummary: row.numerology_summary as string,
     detailedExplanation: row.detailed_explanation as string,
     // detail_body 도입 이전에 생성된 행은 빈 값이므로 합본 문자열로 폴백한다.
-    detailBody:          ((row.detail_body as string) || (row.detailed_explanation as string)) ?? '',
-    tags:                (row.tags as string[]) ?? [],
-    categories:          (row.categories as { title: string; description: string }[]) ?? [],
-    totalStrokes:        row.total_strokes as number,
-    score:               row.score as number,
-    ohang1:              row.ohang1 as string | null,
-    ohang2:              row.ohang2 as string | null,
-    soundScore:          row.sound_score as number,
-    soundOhangList:      (row.sound_ohang_list as string[]) ?? [],
-    soundDetails:        (row.sound_details as string[]) ?? [],
+    detailBody:
+      ((row.detail_body as string) || (row.detailed_explanation as string)) ??
+      "",
+    tags: (row.tags as string[]) ?? [],
+    categories:
+      (row.categories as { title: string; description: string }[]) ?? [],
+    totalStrokes: row.total_strokes as number,
+    score: row.score as number,
+    ohang1: row.ohang1 as string | null,
+    ohang2: row.ohang2 as string | null,
+    soundScore: row.sound_score as number,
+    soundOhangList: (row.sound_ohang_list as string[]) ?? [],
+    soundDetails: (row.sound_details as string[]) ?? [],
   };
 }

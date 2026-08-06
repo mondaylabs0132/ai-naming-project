@@ -123,14 +123,17 @@ export async function POST(
       pool.find((r) => r.score >= 75) ??
       pool[0];
 
-    const { summary, tags, cost: briefCost } = await generateBriefDetail({
-      hangul:   freeName.hangul,
-      hanja1:   freeName.hanja1,
-      hanja2:   freeName.hanja2,
-      meaning1: freeName.meaning1,
-      meaning2: freeName.meaning2,
-      reason:   freeName.reason,
-    });
+    const { summary, tags, cost: briefCost } = await generateBriefDetail(
+      {
+        hangul:   freeName.hangul,
+        hanja1:   freeName.hanja1,
+        hanja2:   freeName.hanja2,
+        meaning1: freeName.meaning1,
+        meaning2: freeName.meaning2,
+        reason:   freeName.reason,
+      },
+      { gender: survey.gender },
+    );
 
     // 무료 사용자 수가 원가의 대부분을 차지하므로 건당 실제 비용을 남긴다.
     console.log(
