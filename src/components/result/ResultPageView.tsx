@@ -29,11 +29,14 @@ export type ResultName = {
   tags: string[];
 };
 
-const STATS = [
+// 개수를 상수로 박아 두면 검증에서 후보가 걸러져 20개가 안 될 때 화면이 거짓말을 한다.
+// 실제로 저장된 이름 수를 그대로 보여준다.
+// nameCount가 null이면 아직 로딩 중 — "0개"를 잠깐이라도 보여주지 않는다.
+const buildStats = (nameCount: number | null) => [
   {
     icon: <Gift className="size-3.5 min-[376px]:size-4" />,
     label: "분석 이름",
-    value: "20개",
+    value: nameCount === null ? "분석 완료" : `${nameCount}개`,
     desc: "전문가 + AI 정밀 분석",
   },
   {
@@ -255,7 +258,9 @@ export default function ResultPageView({
               <h1 className="font-extrabold text-ink leading-[1.3] tracking-[-0.5px] break-keep mb-2 min-[376px]:mb-3 text-[20px] min-[376px]:text-[24px] min-[430px]:text-[28px]">
                 정성껏 분석한
                 <br />
-                <span className="text-primary">20개의 이름을</span>
+                <span className="text-primary">
+                  {isLoading ? "엄선한" : `${names.length}개의`} 이름을
+                </span>
                 <br />
                 확인해보세요
               </h1>
@@ -277,7 +282,7 @@ export default function ResultPageView({
 
           {/* 하단 스탯 행 */}
           <div className="border-t border-[var(--color-divider)] flex divide-x divide-[var(--color-divider)]">
-            {STATS.map((s) => (
+            {buildStats(isLoading ? null : names.length).map((s) => (
               <div
                 key={s.label}
                 className="flex-1 min-w-0 flex flex-col items-center gap-[5px] min-[376px]:gap-[6px] py-3 px-1 min-[376px]:px-2"

@@ -1,4 +1,8 @@
 export const runtime = "nodejs";
+// 이름 19개 수집 + 해설 20건 생성은 실측 1~2분이 걸린다.
+// 명시하지 않으면 플랫폼 기본값에 맡겨지고, 상한에 걸려 죽으면
+// 아무 흔적 없이 PREMIUM_GENERATING에 고착된다.
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,6 +18,8 @@ import {
   toApiShape,
   toApiShapeFromDb,
   MODEL_NAME_GEN,
+  TARGET_NAMES,
+  MIN_DELIVERABLE_NAMES,
   type RichName,
 } from "../_lib";
 
@@ -32,9 +38,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ requestId: string }> },
 ) {
+  // catch에서도 요청 id가 필요하므로 try 밖에서 푼다.
+  const { requestId } = await params;
+  const supabase = createAdminClient();
+
   try {
-    const { requestId } = await params;
-    const supabase = createAdminClient();
 
     // 공개 API의 무단 생성 호출을 막기 위한 게이트.
     // 내부 자동 생성은 secret 헤더로, 사용자 재시도는 세션+주문 소유권으로 검증한다
@@ -68,6 +76,14 @@ export async function POST(
     if (userId && paidOrder.user_id !== userId) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
+
+    // 생성 실패 원인을 남긴다. 리퍼가 재시도를 소진해 FAILED로 확정할 때
+    // 이 값이 그대로 환불 사유가 되므로, 실패 지점마다 채워 둔다.
+    const markFailureReason = (reason: string) =>
+      supabase
+        .from("naming_requests")
+        .update({ generation_failure_reason: reason })
+        .eq("id", requestId);
 
     // 유료 결과 생성 완료 시 status를 RESULT_READY로 전이 → 이메일 DB Webhook 발동.
     // 재시도 도중 GENERATING 유지 + 최종 FAILED 착지는 호출자(complete.ts)가 담당.
@@ -111,6 +127,23 @@ export async function POST(
         ),
       });
     }
+
+    // ── 생성 시작 표시 ─────────────────────────────────────────
+    // generation_started_at은 리퍼(reap_stuck_generations)가 "이 건이 멈췄는지"를
+    // 판단하는 유일한 근거다. 긴 작업 전에 반드시 찍어야 한다.
+    //
+    // status를 PREMIUM_GENERATING으로 되돌리는 것이 사용자 재시도 버튼도 고친다.
+    // 이전에는 FAILED인 채로 생성만 시작해, 실패 화면의 폴링이 다음 tick에서
+    // 다시 FAILED를 읽고 곧바로 실패 화면으로 튕겼다.
+    await supabase
+      .from("naming_requests")
+      .update({
+        status: "PREMIUM_GENERATING",
+        generation_started_at: new Date().toISOString(),
+        generation_failure_reason: null,
+      })
+      .eq("id", requestId)
+      .in("status", ["PREMIUM_GENERATING", "FAILED"]);
 
     // ── 설문 + 성씨 로드 ───────────────────────────────────────
     const loaded = await fetchSurveyAndSurname(supabase, requestId);
@@ -156,30 +189,40 @@ export async function POST(
         }
       : null;
 
-    // ── 유료 이름 19개 생성 ────────────────────────────────────
+    // ── 유료 이름 생성 (무료 1개를 뺀 나머지) ──────────────────
     const { names: pool, cost: nameCost } = await collectNames({
       supabase,
       surname,
       survey,
       lacking,
-      target: 19,
+      target: TARGET_NAMES - 1,
       maxAttempts: 4,
       model: MODEL_NAME_GEN,
       usedNames,
     });
 
-    if (pool.length === 0) {
+    pool.sort((a, b) => b.score - a.score);
+    const premiumNames = pool.slice(0, TARGET_NAMES - 1);
+    const totalNames = premiumNames.length + (freeRichName ? 1 : 0);
+
+    // 점수 미달·독음 불일치 후보를 걸러내면 목표치를 못 채울 수 있다.
+    // 몇 개 모자란 정도는 그대로 제공하되(결제 화면에 고지), 하한 미만이면
+    // 상품이라 부를 수 없으므로 실패로 본다.
+    //
+    // 여기서 곧장 FAILED로 확정하지 않는 이유: 후보 부족은 AI 무작위성 탓이라
+    // 재시도로 살아나는 경우가 많다. 리퍼가 재시도를 소진한 뒤 확정하게 둔다.
+    if (totalNames < MIN_DELIVERABLE_NAMES) {
+      const reason = `이름 부족: ${totalNames}개 (하한 ${MIN_DELIVERABLE_NAMES})`;
+      console.error(`[premium] ${reason} requestId=${requestId}`);
+      await markFailureReason(reason);
       return NextResponse.json(
         { error: "이름 생성에 실패했습니다." },
         { status: 500 },
       );
     }
 
-    pool.sort((a, b) => b.score - a.score);
-    const top19 = pool.slice(0, 19);
-
-    // ── 무료(1) + 유료(19) = 20개 일괄 detail 생성 ────────────
-    const allForDetail = [...(freeRichName ? [freeRichName] : []), ...top19];
+    // ── 무료(1) + 유료(나머지) 일괄 detail 생성 ────────────────
+    const allForDetail = [...(freeRichName ? [freeRichName] : []), ...premiumNames];
     // 오행·사격·발음오행·부족 기운을 그대로 넘겨, AI가 이 값들을 추측하지 않도록 한다.
     const { map: detailMap, cost: detailCost } = await generateDetailedReason(
       allForDetail,
@@ -207,7 +250,7 @@ export async function POST(
     }
 
     const { error: insertErr } = await supabase.from("name_candidates").insert(
-      top19.map((n, i) =>
+      premiumNames.map((n, i) =>
         toDbRow({
           requestId,
           sortOrder: i + 1,
@@ -222,6 +265,7 @@ export async function POST(
 
     if (insertErr) {
       console.error("[premium] name_candidates 삽입 실패:", insertErr.message);
+      await markFailureReason(`DB 저장 실패: ${insertErr.message}`);
       return NextResponse.json({ error: "DB 저장 실패" }, { status: 500 });
     }
 
@@ -236,6 +280,15 @@ export async function POST(
     });
   } catch (e) {
     console.error("[/api/naming/[requestId]/premium]", e);
+    // 상태는 PREMIUM_GENERATING에 그대로 둔다. 리퍼가 재시도하고,
+    // 소진되면 그때 FAILED로 확정하며 이 사유를 환불 기록에 싣는다.
+    await supabase
+      .from("naming_requests")
+      .update({
+        generation_failure_reason: e instanceof Error ? e.message : String(e),
+      })
+      .eq("id", requestId);
+
     return NextResponse.json(
       { error: "서버 오류가 발생했습니다." },
       { status: 500 },

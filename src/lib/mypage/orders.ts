@@ -1,7 +1,15 @@
 import { createClient } from "@/lib/supabase/client";
 import { toError } from "@/lib/supabase/error";
 
-export type OrderState = "COMPLETED" | "PENDING" | "FAILED" | "CANCELED";
+// premium_orders.status의 CHECK 제약과 같은 집합이어야 한다.
+// 하나라도 빠지면 ORDER_STATE_LABEL 조회가 undefined가 되어 배지가 빈다.
+export type OrderState =
+  | "COMPLETED"
+  | "PENDING"
+  | "PROCESSING"
+  | "FAILED"
+  | "CANCELED"
+  | "REFUNDED";
 
 export type OrderItem = {
   id: string;
@@ -15,6 +23,9 @@ export type OrderItem = {
   failedAt: string | null;
   failureReason: string | null;
   createdAt: string | null;
+  refundedAt: string | null;
+  refundAmount: number | null;
+  refundReason: string | null;
   // 결제한 분석의 결과를 다시 볼 수 있는지. 생성 실패·삭제 건은 링크를 걸지 않는다.
   isResultReadable: boolean;
 };
@@ -22,8 +33,10 @@ export type OrderItem = {
 export const ORDER_STATE_LABEL: Record<OrderState, string> = {
   COMPLETED: "결제 완료",
   PENDING: "결제 진행 중",
+  PROCESSING: "결제 진행 중",
   FAILED: "결제 실패",
   CANCELED: "결제 취소",
+  REFUNDED: "환불 완료",
 };
 
 /**
@@ -41,6 +54,7 @@ export async function getOrders(): Promise<OrderItem[]> {
     .select(
       `id, request_id, status, original_amount, discount_amount, amount,
        coupon_id, paid_at, failed_at, failure_reason, created_at,
+       refunded_at, refund_amount, refund_reason,
        naming_requests ( status, deleted_at )`,
     )
     .order("created_at", { ascending: false });
@@ -59,6 +73,9 @@ export async function getOrders(): Promise<OrderItem[]> {
     failed_at: string | null;
     failure_reason: string | null;
     created_at: string | null;
+    refunded_at: string | null;
+    refund_amount: number | null;
+    refund_reason: string | null;
     naming_requests: { status: string | null; deleted_at: string | null } | null;
   };
 
@@ -74,6 +91,9 @@ export async function getOrders(): Promise<OrderItem[]> {
     failedAt: row.failed_at,
     failureReason: row.failure_reason,
     createdAt: row.created_at,
+    refundedAt: row.refunded_at,
+    refundAmount: row.refund_amount,
+    refundReason: row.refund_reason,
     isResultReadable:
       row.naming_requests?.status === "PREMIUM_RESULT_READY" &&
       row.naming_requests?.deleted_at === null,

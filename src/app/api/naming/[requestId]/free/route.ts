@@ -1,4 +1,6 @@
 export const runtime = "nodejs";
+// 이름 후보 수집 + 요약 1건. 유료보다 짧지만 재시도가 붙으면 늘어난다.
+export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
