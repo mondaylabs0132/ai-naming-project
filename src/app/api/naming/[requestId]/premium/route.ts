@@ -50,13 +50,28 @@ export async function POST(
 
     let userId: string | null = null;
     if (!isInternal) {
+      // 시크릿이 아예 설정돼 있지 않으면 내부 호출을 인정할 방법이 없다.
+      // 이 경우 서버가 보낸 트리거도 세션 검사로 떨어지는데, 서버 간 fetch에는
+      // 쿠키가 없어 무조건 실패한다. 이걸 "요청 없음"으로 위장하면 원인을
+      // 영영 못 찾으므로, 설정 오류로 분명히 드러낸다.
+      if (!internalJobSecret) {
+        console.error(
+          "[premium] INTERNAL_JOB_SECRET(또는 WEBHOOK_SECRET)이 설정되지 않아 내부 호출을 인증할 수 없습니다.",
+        );
+        return NextResponse.json(
+          { error: "internal_secret_not_configured" },
+          { status: 500 },
+        );
+      }
+
       const authClient = await createServerClient();
       const {
         data: { user },
       } = await authClient.auth.getUser();
 
+      // 로그인하지 않은 호출. 404로 감추면 호출자가 "요청이 없다"로 오해한다.
       if (!user) {
-        return NextResponse.json({ error: "not_found" }, { status: 404 });
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
       }
 
       userId = user.id;

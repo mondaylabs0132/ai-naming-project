@@ -28,27 +28,43 @@ const internalJobSecret =
  *   - 응답이 오든 안 오든 진실은 naming_requests.status에 있다.
  *   - 재시도와 최종 FAILED 확정은 전부 리퍼가 한다. (매분 실행)
  */
-async function triggerGeneration(admin: SupabaseClient, requestId: string) {
+async function triggerGeneration(requestId: string) {
+  // 시크릿이 없으면 생성 API가 이 호출을 내부 호출로 인정하지 않는다.
+  // 그대로 보내면 세션 인증 경로로 넘어가는데, 서버 간 fetch에는 쿠키가 없어
+  // 반드시 인증 실패로 떨어진다. 보내 봐야 소용없으므로 여기서 멈춘다.
+  //
+  // 상태는 PREMIUM_GENERATING으로 남긴다. 리퍼는 앱 환경변수가 아니라 Vault에서
+  // 시크릿을 읽으므로, 앱 쪽 설정만 빠진 경우라면 리퍼가 대신 살려낸다.
+  if (!internalJobSecret) {
+    console.error(
+      `[completeOrder] INTERNAL_JOB_SECRET(또는 WEBHOOK_SECRET) 미설정 — 생성 트리거를 건너뜁니다. requestId=${requestId}`,
+    );
+    return;
+  }
+
   const url = `${process.env.APP_ORIGIN}/api/naming/${requestId}/premium`;
 
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { [INTERNAL_JOB_SECRET_HEADER]: internalJobSecret ?? "" },
+      headers: { [INTERNAL_JOB_SECRET_HEADER]: internalJobSecret },
       signal: AbortSignal.timeout(TRIGGER_TIMEOUT_MS),
     });
 
-    // 결제 미완료(403)/요청 없음(404)은 몇 번을 더 불러도 같다.
-    // 리퍼가 헛되이 재시도하지 않도록 여기서 바로 실패로 확정한다.
-    if (res.status === 403 || res.status === 404) {
-      await admin
-        .from("naming_requests")
-        .update({
-          status: "FAILED",
-          generation_failure_reason: `생성 호출 거부(${res.status})`,
-        })
-        .eq("id", requestId)
-        .eq("status", "PREMIUM_GENERATING");
+    // 여기서는 어떤 응답이 와도 상태를 건드리지 않는다.
+    //
+    // 이전에는 403·404를 영구 실패로 보고 즉시 FAILED로 확정했다. 그런데 그 두
+    // 코드는 설정 실수만으로도 나온다(시크릿 누락 → 내부 호출로 인정받지 못함
+    // → 쿠키 없는 세션 검사 → 인증 실패). 그러면 결제한 모든 사용자가 곧바로
+    // 실패 화면을 보고, 상태가 PREMIUM_GENERATING이 아니게 되므로 리퍼도
+    // 손대지 못해 자동 복구조차 되지 않았다.
+    //
+    // 빠르게 실패시켜 얻는 것은 대기 시간 20분 단축뿐인 반면, 잘못 판단했을 때
+    // 잃는 것은 결제 건 전체다. 실패 확정은 리퍼에게 일임한다.
+    if (!res.ok) {
+      console.warn(
+        `[completeOrder] 생성 트리거 응답 ${res.status} — 리퍼가 재시도합니다. requestId=${requestId}`,
+      );
     }
   } catch {
     // 타임아웃·네트워크 오류. 요청이 닿았는지 알 수 없지만 판단은 리퍼에 맡긴다.
@@ -174,7 +190,7 @@ export async function completeOrder(
   }
 
   // 응답을 먼저 반환하고 백그라운드로 생성 트리거 (generating 페이지가 status 폴링).
-  after(() => triggerGeneration(admin, order.request_id));
+  after(() => triggerGeneration(order.request_id));
 }
 
 /**
