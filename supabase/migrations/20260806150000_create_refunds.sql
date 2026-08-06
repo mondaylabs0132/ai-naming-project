@@ -46,7 +46,12 @@ create index if not exists refunds_request_id_idx
 
 -- RLS 정책은 "어떤 행을 볼지"만 정한다. 테이블 접근 자체는 GRANT가 필요하며
 -- 이게 없으면 정책이 맞아도 permission denied(42501)로 막힌다.
--- 기록은 서버(service role)만 남기므로 사용자에겐 select만 준다.
+--
+-- 이 프로젝트는 새 테이블에 기본 권한이 붙지 않는다. service_role조차
+-- 명시하지 않으면 INSERT가 막힌다. 이 테이블은 서버만 쓰기 때문에
+-- 그 누락이 곧 기능 전체 실패였다(환불은 되는데 이력만 안 남음).
+grant insert, select on public.refunds to service_role;
+-- 사용자는 자기 이력을 읽기만 한다. 기록은 서버가 남긴다.
 grant select on public.refunds to authenticated;
 
 alter table public.refunds enable row level security;
