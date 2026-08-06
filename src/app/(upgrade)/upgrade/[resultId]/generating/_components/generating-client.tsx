@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, RefreshCcw, Siren } from "lucide-react";
+import { CheckCircle2, RefreshCcw, Siren, Undo2 } from "lucide-react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -19,8 +19,21 @@ import {
 const POLL_INTERVAL = 2000;
 const SUPPORT_EMAIL = "support@naming.app";
 
+// 서버 리퍼가 5분 간격 3회 + 실패 확정으로 최대 20분쯤 걸린다.
+// 그보다 넉넉히 두되, 상한 없는 폴링만은 막는다.
+// (예전에는 상한이 없어, 서버 쪽이 죽으면 92%에서 영원히 기다렸다)
+const POLL_TIMEOUT_MS = 25 * 60 * 1000;
+// 일시적 네트워크 오류로 실패 화면을 띄우면 안 되므로 연속 실패만 센다.
+const MAX_CONSECUTIVE_ERRORS = 10;
+// 재시도 직후 잠깐은 FAILED를 무시한다. 생성 라우트가 상태를
+// PREMIUM_GENERATING으로 되돌리기 전에 폴링이 먼저 읽으면 곧바로 되튕긴다.
+const RETRY_GRACE_MS = 15_000;
+
 // 화면 진행 단계: confirming(결제 승인 확인) · generating(생성 완료 대기 폴링) · pending(결제 미확정 폴링) · failed(생성 실패)
 type Phase = "confirming" | "generating" | "pending" | "failed";
+
+/** 환불 버튼 상태. done은 사용자가 눌렀든 서버가 자동으로 했든 "이미 환불됨". */
+type RefundState = "idle" | "loading" | "done" | "error";
 
 export default function PremiumGeneratingClient() {
   // useSearchParams는 Suspense 경계가 필요 (Next 16 prerender 규칙)
@@ -52,6 +65,9 @@ function GeneratingInner() {
   const [isDone, setIsDone] = useState(false);
   const confirmedRef = useRef(false);
   const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 재시도 직후 FAILED를 무시할 시각(epoch ms).
+  const retryGraceUntilRef = useRef(0);
+  const [refundState, setRefundState] = useState<RefundState>("idle");
 
   useEffect(() => {
     return () => {
@@ -102,14 +118,29 @@ function GeneratingInner() {
   useEffect(() => {
     if (phase !== "generating") return;
     let alive = true;
+    const startedAt = Date.now();
+    let consecutiveErrors = 0;
 
     const tick = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("naming_requests")
         .select("status")
         .eq("id", resultId)
         .single();
       if (!alive) return;
+
+      // 조회 자체가 실패한 경우. 예전에는 error를 아예 읽지 않아
+      // status가 undefined인 채로 조용히 폴링만 이어갔다.
+      if (error) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          console.error("[generating] 상태 조회가 계속 실패합니다:", error);
+          setPhase("failed");
+        }
+        return;
+      }
+      consecutiveErrors = 0;
+
       const status = data?.status;
       if (status === "PREMIUM_RESULT_READY") {
         // 게이지를 100%까지 채운 뒤 이동. 폴링은 아래 cleanup에서 멈춘다.
@@ -119,6 +150,13 @@ function GeneratingInner() {
           router.replace(`/upgrade/${resultId}/result`);
         }, DONE_HOLD_MS);
       } else if (status === "FAILED") {
+        // 재시도 직후라면 아직 상태가 안 뒤집힌 것뿐이다.
+        if (Date.now() < retryGraceUntilRef.current) return;
+        setPhase("failed");
+      } else if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+        console.error(
+          `[generating] 폴링 상한(${POLL_TIMEOUT_MS / 60000}분) 초과 requestId=${resultId} status=${status}`,
+        );
         setPhase("failed");
       }
     };
@@ -161,17 +199,61 @@ function GeneratingInner() {
     };
   }, [phase, resultId, router, supabase]);
 
-  async function handleRetry() {
-    setPhase("generating"); // 낙관적 전환 → 폴링이 RESULT_READY/FAILED로 재판정
+  // ── failed: 서버가 이미 자동 환불했는지 확인 ──
+  // 리퍼가 실패를 확정하면서 환불까지 끝냈을 수 있다. 그 경우 환불 버튼을
+  // 보여주면 사용자는 돈을 못 받은 줄 안다.
+  useEffect(() => {
+    if (phase !== "failed") return;
+    let alive = true;
+
+    supabase
+      .from("premium_orders")
+      .select("status")
+      .eq("request_id", resultId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (alive && data?.status === "REFUNDED") setRefundState("done");
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [phase, resultId, supabase]);
+
+  function handleRetry() {
+    // 생성은 1~2분 걸리므로 응답을 기다리지 않는다. 대신 유예 시간을 두고
+    // 폴링이 그사이 남아 있는 FAILED를 최종 실패로 오판하지 않게 한다.
+    retryGraceUntilRef.current = Date.now() + RETRY_GRACE_MS;
+    setPhase("generating");
+    fetch(`/api/naming/${resultId}/premium`, { method: "POST" }).catch(() => {
+      // 폴링이 상태를 다시 잡아준다.
+    });
+  }
+
+  async function handleRefund() {
+    if (refundState === "loading" || refundState === "done") return;
+    setRefundState("loading");
     try {
-      await fetch(`/api/naming/${resultId}/premium`, { method: "POST" });
+      const res = await fetch("/api/checkout/refund", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ requestId: resultId }),
+      });
+      setRefundState(res.ok ? "done" : "error");
     } catch {
-      // 폴링이 상태를 다시 잡아줌
+      setRefundState("error");
     }
   }
 
   if (phase === "failed") {
-    return <GenerationFailedView resultId={resultId} onRetry={handleRetry} />;
+    return (
+      <GenerationFailedView
+        resultId={resultId}
+        onRetry={handleRetry}
+        onRefund={handleRefund}
+        refundState={refundState}
+      />
+    );
   }
 
   // AI 생성 대기 구간에서만 경과 시간을 계측한다.
@@ -199,10 +281,16 @@ function LiveAnalyzingView({ isDone }: { isDone: boolean }) {
 function GenerationFailedView({
   resultId,
   onRetry,
+  onRefund,
+  refundState,
 }: {
   resultId: string;
   onRetry: () => void;
+  onRefund: () => void;
+  refundState: RefundState;
 }) {
+  const refunded = refundState === "done";
+
   return (
     <div className="px-5 py-10 text-center">
       <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary-pale">
@@ -213,28 +301,60 @@ function GenerationFailedView({
         결과 생성 중 문제가 발생했어요
       </h1>
 
-      {/* 1. 결제 정상 안심 문구(필수) */}
+      {/* 1. 결제·환불 상태 안내 */}
       <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
-        <p className="text-[14px] leading-[1.7] text-ink">
-          <span className="font-bold text-primary">
-            결제는 정상 완료되었습니다.
-          </span>{" "}
-          결과 생성 중 문제가 발생했어요.{" "}
-          <span className="font-bold">요금이 다시 청구되지 않습니다.</span>
-        </p>
+        {refunded ? (
+          <p className="text-[14px] leading-[1.7] text-ink">
+            <span className="font-bold text-primary">
+              결제 금액을 환불해드렸어요.
+            </span>{" "}
+            카드사에 따라 환불 반영까지 영업일 기준 3~5일이 걸릴 수 있어요.
+            쿠폰을 사용하셨다면 다시 사용하실 수 있도록 돌려드렸어요.
+          </p>
+        ) : (
+          <p className="text-[14px] leading-[1.7] text-ink">
+            <span className="font-bold text-primary">
+              결제는 정상 완료되었습니다.
+            </span>{" "}
+            다시 시도해도 생성되지 않으면{" "}
+            <span className="font-bold">자동으로 환불해드려요.</span> 어느
+            경우에도 요금이 다시 청구되지 않습니다.
+          </p>
+        )}
       </div>
 
-      {/* 2. 다시 시도 */}
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-btn font-bold text-white shadow-btn transition hover:bg-primary-light"
-      >
-        <RefreshCcw size={18} />
-        다시 시도
-      </button>
+      {/* 2. 다시 시도 — 환불된 뒤에는 의미가 없으므로 감춘다 */}
+      {!refunded && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-btn font-bold text-white shadow-btn transition hover:bg-primary-light"
+        >
+          <RefreshCcw size={18} />
+          다시 시도
+        </button>
+      )}
 
-      {/* 3. 문의 안내 */}
+      {/* 3. 즉시 환불 — 자동 환불까지 기다리기 싫은 사용자를 위한 경로 */}
+      {!refunded && (
+        <button
+          type="button"
+          onClick={onRefund}
+          disabled={refundState === "loading"}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-divider bg-surface py-4 text-btn font-bold text-ink transition hover:bg-surface-section disabled:opacity-50"
+        >
+          <Undo2 size={18} />
+          {refundState === "loading" ? "환불 처리 중…" : "지금 환불받기"}
+        </button>
+      )}
+
+      {refundState === "error" && (
+        <p className="mt-3 text-caption leading-[1.7] text-[#B3261E]" role="alert">
+          환불 처리에 실패했어요. 잠시 후 다시 시도하거나 아래로 문의해주세요.
+        </p>
+      )}
+
+      {/* 4. 문의 안내 */}
       <p className="mt-4 text-caption leading-[1.7] text-ink-muted break-keep">
         문제가 계속되면 문의해주세요.
         <br />
@@ -276,7 +396,7 @@ function AnalyzingView({
       </p>
 
       <h1 className="mt-2 text-page-title font-extrabold leading-[1.35] tracking-[-0.4px]">
-        <span className="text-ink">20개의 이름을</span>
+        <span className="text-ink">최대 20개의 이름을</span>
         <br />
         <span className="text-primary">정성껏 분석하고 있어요</span>
       </h1>
@@ -285,6 +405,12 @@ function AnalyzingView({
         AI와 전문가가 사주, 음양, 발음, 의미까지
         <br />
         꼼꼼하게 분석하여 최고의 이름을 찾아드릴게요.
+      </p>
+
+      {/* 결제 화면에 이어 한 번 더 고지한다. 결과를 열었을 때 개수가 달라
+          당황하는 일이 없도록. */}
+      <p className="mt-2 text-caption text-ink-light leading-[1.6] break-keep">
+        검증을 통과한 이름만 담기 때문에 20개보다 적을 수 있어요.
       </p>
 
       {/* 일러스트 영역 — 배경(별 캐릭터)은 고정, 분석 카드 에셋만 부유 */}

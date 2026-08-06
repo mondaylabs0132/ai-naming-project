@@ -393,6 +393,15 @@ reason은 순한글로만 작성하세요. 영어 혼용 금지.
 export const NAMES_PER_CALL = 60;
 const NAMES_MAX_TOKENS = 6000;
 
+// 유료 결과로 내보낼 이름 개수의 목표치와 하한.
+//
+// 점수가 낮거나 독음이 어긋난 후보를 걸러내면 20개를 못 채우는 경우가 생긴다.
+// 몇 개 모자란다고 전액 환불하는 것은 사용자에게도 손해라 그대로 제공하되,
+// 이 하한 미만이면 상품이라 부르기 어려우므로 실패로 보고 환불한다.
+// (근거 있는 수치가 아니라 정한 값이다. 조정은 이 상수만 바꾸면 된다.)
+export const TARGET_NAMES = 20;
+export const MIN_DELIVERABLE_NAMES = 12;
+
 // 무료 경로는 사용자 수가 많아 원가의 대부분을 차지한다.
 // gpt-4o로 측정했을 때 건당 26.10원(mini 1.17원의 22배)이라
 // 1000명당 1명 결제 가정에서 매출 19,900원을 넘어선다.
@@ -614,69 +623,196 @@ export function calcSoundScore(
 // AI
 // ==========================================================
 
+/** 한 번의 AI 호출이 응답을 기다리는 상한. */
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 60_000);
+/** 첫 시도를 포함한 총 시도 횟수. */
+const AI_MAX_ATTEMPTS = Number(process.env.AI_MAX_ATTEMPTS ?? 3);
+// 재시도까지 합친 총 상한. 라우트의 maxDuration 안에서 끝나야 하므로,
+// 재시도가 남아 있어도 이 시각을 넘길 것 같으면 그냥 포기한다.
+const AI_DEADLINE_MS = Number(process.env.AI_DEADLINE_MS ?? 150_000);
+
+// 재시도가 의미 있는 상태코드. 나머지(400 잘못된 요청, 401 키 오류,
+// 404 모델명 오류)는 몇 번을 더 보내도 같은 답이 오므로 즉시 포기한다.
+const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+
+export class AiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null,
+    readonly retryable: boolean,
+    readonly retryAfter: string | null = null,
+  ) {
+    super(message);
+    this.name = "AiError";
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function httpError(provider: string, res: Response): Promise<AiError> {
+  // 본문에 실제 원인이 담겨 있다. 못 읽어도 상태코드만으로 진행한다.
+  let detail = "";
+  try {
+    detail = (await res.text()).slice(0, 500);
+  } catch {
+    /* 본문 없음 */
+  }
+  return new AiError(
+    `${provider} ${res.status}: ${detail || res.statusText}`,
+    res.status,
+    RETRYABLE_STATUS.has(res.status),
+    res.headers.get("retry-after"),
+  );
+}
+
+function retryDelayMs(attempt: number, retryAfter: string | null): number {
+  // 서버가 언제 다시 오라고 알려주면 그 말을 따른다. 초 단위 또는 HTTP-date.
+  if (retryAfter) {
+    const secs = Number(retryAfter);
+    if (Number.isFinite(secs)) return Math.min(secs * 1000, 20_000);
+    const at = Date.parse(retryAfter);
+    if (!Number.isNaN(at)) return Math.min(Math.max(at - Date.now(), 0), 20_000);
+  }
+  // 없으면 지수 백오프. jitter를 섞어 재시도가 한꺼번에 몰리지 않게 한다.
+  const base = 500 * 2 ** attempt;
+  return base + Math.random() * base * 0.5;
+}
+
+type RawCompletion = {
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+};
+
+async function callAnthropic(
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number,
+  timeoutMs: number,
+): Promise<RawCompletion> {
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: userPrompt }],
+  };
+  if (systemPrompt) body.system = systemPrompt;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!res.ok) throw await httpError("Anthropic", res);
+
+  const data = await res.json();
+  // 200인데 error가 실려 오는 경우. 재시도해도 같은 결과다.
+  if (data.error) throw new AiError(`Anthropic: ${data.error.message}`, 200, false);
+
+  return {
+    text: data.content?.[0]?.text ?? "",
+    inputTokens: data.usage?.input_tokens ?? 0,
+    outputTokens: data.usage?.output_tokens ?? 0,
+  };
+}
+
+async function callOpenAI(
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number,
+  timeoutMs: number,
+): Promise<RawCompletion> {
+  const messages: unknown[] = [];
+  if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  messages.push({ role: "user", content: userPrompt });
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!res.ok) throw await httpError("OpenAI", res);
+
+  const data = await res.json();
+  if (data.error) throw new AiError(`OpenAI: ${data.error.message}`, 200, false);
+
+  const outputTokens = data.usage?.completion_tokens ?? 0;
+
+  // 상한에 걸려 잘린 응답은 JSON이 깨져 통째로 버려진다.
+  // 조용히 넘어가면 "왜 결과가 비었는지"를 알 수 없으므로 반드시 남긴다.
+  const finish = data.choices?.[0]?.finish_reason;
+  if (finish && finish !== "stop") {
+    console.warn(
+      `[callAI] 비정상 종료 (model=${model}, finish_reason=${finish}, max_tokens=${maxTokens}, 출력=${outputTokens}토큰)`,
+    );
+  }
+
+  return {
+    text: data.choices?.[0]?.message?.content ?? "",
+    inputTokens: data.usage?.prompt_tokens ?? 0,
+    outputTokens,
+  };
+}
+
 export async function callAI(
   model: string,
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number,
 ): Promise<{ text: string; cost: number }> {
-  let text = "",
-    inputTokens = 0,
-    outputTokens = 0;
+  const deadline = Date.now() + AI_DEADLINE_MS;
+  let lastError: unknown;
 
-  if (model.startsWith("claude")) {
-    const body: Record<string, unknown> = {
-      model,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: userPrompt }],
-    };
-    if (systemPrompt) body.system = systemPrompt;
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY!,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(`Anthropic: ${data.error.message}`);
-    text = data.content?.[0]?.text ?? "";
-    inputTokens = data.usage?.input_tokens ?? 0;
-    outputTokens = data.usage?.output_tokens ?? 0;
-  } else {
-    const messages: unknown[] = [];
-    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
-    messages.push({ role: "user", content: userPrompt });
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(`OpenAI: ${data.error.message}`);
-    text = data.choices?.[0]?.message?.content ?? "";
-    inputTokens = data.usage?.prompt_tokens ?? 0;
-    outputTokens = data.usage?.completion_tokens ?? 0;
+  for (let attempt = 0; attempt < AI_MAX_ATTEMPTS; attempt++) {
+    // 남은 데드라인보다 긴 타임아웃을 걸면 라우트 수명을 넘긴다.
+    const timeoutMs = Math.min(AI_TIMEOUT_MS, Math.max(deadline - Date.now(), 1));
 
-    // 상한에 걸려 잘린 응답은 JSON이 깨져 통째로 버려진다.
-    // 조용히 넘어가면 "왜 결과가 비었는지"를 알 수 없으므로 반드시 남긴다.
-    const finish = data.choices?.[0]?.finish_reason;
-    if (finish && finish !== "stop") {
-      console.warn(
-        `[callAI] 비정상 종료 (model=${model}, finish_reason=${finish}, max_tokens=${maxTokens}, 출력=${outputTokens}토큰)`,
+    try {
+      const raw = model.startsWith("claude")
+        ? await callAnthropic(model, systemPrompt, userPrompt, maxTokens, timeoutMs)
+        : await callOpenAI(model, systemPrompt, userPrompt, maxTokens, timeoutMs);
+
+      const [inRate, outRate] = MODEL_RATES[model] ?? [2.5, 10];
+      const cost =
+        ((raw.inputTokens * inRate + raw.outputTokens * outRate) / 1_000_000) *
+        1450;
+      return { text: raw.text, cost };
+    } catch (e) {
+      lastError = e;
+
+      // AiError가 아닌 예외는 fetch 자체가 실패했거나(네트워크 단절,
+      // AbortSignal.timeout) 응답 본문이 JSON이 아닌 경우다. 둘 다 일시적일 수
+      // 있으므로 재시도 대상으로 본다.
+      const retryable = e instanceof AiError ? e.retryable : true;
+      if (!retryable || attempt === AI_MAX_ATTEMPTS - 1) throw e;
+
+      const wait = retryDelayMs(
+        attempt,
+        e instanceof AiError ? e.retryAfter : null,
       );
+      // 기다린 뒤 호출할 시간이 없으면 기다리는 것 자체가 낭비다.
+      if (Date.now() + wait >= deadline) throw e;
+
+      console.warn(
+        `[callAI] 재시도 ${attempt + 1}/${AI_MAX_ATTEMPTS - 1} (model=${model}, ${wait.toFixed(0)}ms 후): ${e instanceof Error ? e.message : String(e)}`,
+      );
+      await sleep(wait);
     }
   }
 
-  const [inRate, outRate] = MODEL_RATES[model] ?? [2.5, 10];
-  const cost =
-    ((inputTokens * inRate + outputTokens * outRate) / 1_000_000) * 1450;
-  return { text, cost };
+  throw lastError;
 }
 
 export async function generateNames(options: {
@@ -867,8 +1003,24 @@ ${nameList}
         16384,
       ),
   );
-  const results = await Promise.all(batches);
+  // allSettled여야 한다. Promise.all이면 배치 하나가 던진 순간 나머지 배치가
+  // 받아 온 해설까지 통째로 버려지고, 결제한 사용자에게 500이 나간다.
+  // 실패한 배치의 이름들은 아래 2차 개별 재시도가 주워 담는다.
+  const settled = await Promise.allSettled(batches);
+  const results = settled.map((s) =>
+    s.status === "fulfilled" ? s.value : { text: "", cost: 0 },
+  );
   totalCost += results.reduce((s, r) => s + r.cost, 0);
+
+  const failedBatches = settled.filter((s) => s.status === "rejected");
+  if (failedBatches.length > 0) {
+    console.error(
+      `[generateDetailedReason] 배치 ${failedBatches.length}/${settled.length}개 호출 실패:`,
+      failedBatches.map((s) =>
+        s.reason instanceof Error ? s.reason.message : String(s.reason),
+      ),
+    );
+  }
 
   const isValidTag = (t: string) => /^#[가-힣a-zA-Z0-9]{1,8}$/.test(t);
   const normalizeTags = (raw: string[]) =>
@@ -880,10 +1032,17 @@ ${nameList}
       .filter(isValidTag);
 
   for (const [bi, res] of results.entries()) {
+    // 호출 자체가 실패한 배치. 위에서 이미 원인을 남겼으므로
+    // 파싱까지 태워 "JSON 파싱 실패"라는 엉뚱한 로그를 겹쳐 찍지 않는다.
+    if (!res.text) continue;
     for (const r of parse(res.text, `배치 ${bi + 1}`)) {
       map[r.hangul] = {
         summary: r.summary,
-        categories: r.categories,
+        // AI가 필드를 통째로 빠뜨리는 경우가 있다. undefined로 두면
+        // buildDetailedExplanation의 detail.categories.map에서 TypeError가 나고,
+        // 그게 premium 라우트 전체를 500으로 떨어뜨린다.
+        // 이름 하나가 부실해지는 것과 결제자 전원이 결과를 못 받는 것은 다른 문제다.
+        categories: r.categories ?? [],
         detail: r.detail,
         tags: normalizeTags(r.tags ?? []),
       };
@@ -913,6 +1072,9 @@ ${nameList}
         if (parsed[0]) {
           map[n.hangul] = {
             ...parsed[0],
+            // 배치 경로와 같은 이유로 여기서도 반드시 채운다.
+            // 스프레드는 없는 키를 만들어주지 않는다.
+            categories: parsed[0].categories ?? [],
             tags: normalizeTags(parsed[0].tags ?? []),
           };
         } else console.warn(`[generateDetailedReason] 재시도 실패:`, n.hangul);
@@ -1110,14 +1272,35 @@ export async function collectNames(params: {
       Boolean,
     );
     if (readings.length > 0) {
-      const { data: sameReading } = await supabase
+      // PostgREST 기본 상한(1000행)에 닿으면 결과가 조용히 잘린다.
+      // 지금은 기피 한자가 최대 5개(naming_surveys_avoid_hanja_id_check)이고
+      // 가장 큰 독음 그룹 5개를 다 골라도 568행이라 도달하지 않는다.
+      // 다만 한자 데이터가 늘거나 개수 제한이 풀리면 말없이 깨지므로,
+      // 상한을 명시하고 닿으면 로그로 알린다.
+      const VARIANT_ROW_LIMIT = 2000;
+      const { data: sameReading, error: variantError } = await supabase
         .from("hanja")
         .select("hanja, hangul_main, meanings")
-        .in("hangul_main", readings);
+        .in("hangul_main", readings)
+        .limit(VARIANT_ROW_LIMIT);
+
+      // 1차 조회와 같은 기준으로 실패를 다룬다. 여기서 조용히 넘어가면
+      // 이체자 확장만 통째로 사라져, 기피 한자를 반만 거른 채 결과가 나간다.
+      if (variantError) {
+        console.error(
+          `[collectNames] 이체자 조회 실패: ${variantError.message}`,
+        );
+        throw new Error("기피 한자 정보를 불러오지 못했습니다.");
+      }
 
       // 관계를 전이적으로 닫는다. 勛은 "공[勳]", 勲는 "勳의"라 둘 다 제3의
       // 글자만 가리킨다. 직접 연결만 보면 형제인 勛↔勲를 놓친다.
       const pool = (sameReading ?? []) as HanjaVariantRow[];
+      if (pool.length >= VARIANT_ROW_LIMIT) {
+        console.error(
+          `[collectNames] 이체자 후보가 상한(${VARIANT_ROW_LIMIT})에 닿아 잘렸을 수 있습니다. 독음=${readings.join(",")}`,
+        );
+      }
       const chosen = [...picked];
       for (let grew = true; grew; ) {
         grew = false;
@@ -1389,7 +1572,10 @@ export function buildDetailedExplanation(
   detail?: NameDetail,
 ): string {
   if (!detail) return name.reason;
-  const categoryText = detail.categories
+  // 타입상으로는 배열이지만 값은 AI 응답에서 온다. 필드가 빠진 채로 들어오면
+  // 여기서 터지고, 이 함수는 premium 라우트 try 안에서 불리므로 500이 된다.
+  // 생성 결과 전체를 잃느니 해당 항목만 비우는 편이 낫다.
+  const categoryText = (detail.categories ?? [])
     .map((c) => `[${c.title}]\n${c.description}`)
     .join("\n\n");
   const detailText = detail.detail?.trim() || name.reason;
@@ -1400,7 +1586,7 @@ export function buildDetailedExplanation(
     "",
     detailText,
     "",
-    detail.tags.join(" "),
+    (detail.tags ?? []).join(" "),
   ].join("\n");
 }
 

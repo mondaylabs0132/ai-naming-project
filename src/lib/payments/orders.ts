@@ -43,7 +43,9 @@ export type PaymentAttempt = {
 /**
  *  이 결과(request_id)의 주문 1건을 준비한다 (결과당 1장 규칙).
  * - PROCESSING / COMPLETED  → 이미 진행 중이거나 끝남. 건드리지 않고 conflict 반환
- * - PENDING / FAILED / CANCELED → 죽은 주문이라 되살려 씀. 금액·쿠폰 갱신 후 PENDING으로 리셋.
+ * - PENDING / FAILED / CANCELED / REFUNDED → 죽은 주문이라 되살려 씀.
+ *   금액·쿠폰 갱신 후 PENDING으로 리셋. (REFUNDED는 생성 실패로 돈을 돌려준 건이라
+ *   재구매를 막을 이유가 없다. 환불 흔적도 함께 지워야 다음 결제와 섞이지 않는다.)
  * - (주문 없음)             → 새로 INSERT.
  * - 참고: 같은 쿠폰을 두 주문서가 동시에 쓰려 하면 DB가 막음(에러 23505 → prepare가 처리).
  */
@@ -82,6 +84,9 @@ export async function prepareOrder(
         paid_at: null,
         failed_at: null,
         failure_reason: null,
+        refunded_at: null,
+        refund_amount: null,
+        refund_reason: null,
       })
       .eq("id", existing.id)
       .select("*")

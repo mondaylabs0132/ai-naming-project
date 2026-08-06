@@ -19,8 +19,11 @@ import {
 const STATE_TONE: Record<OrderState, BadgeTone> = {
   COMPLETED: "green",
   PENDING: "amber",
+  PROCESSING: "amber",
   FAILED: "red",
   CANCELED: "neutral",
+  // 환불은 사고가 아니라 정상 종결이다. 빨강은 과하다.
+  REFUNDED: "neutral",
 };
 
 export default function OrdersPage() {
@@ -126,6 +129,38 @@ export default function OrdersPage() {
                 <p className="mt-3 pt-3 border-t border-divider text-[#B3261E] text-caption break-keep">
                   {item.failureReason}
                 </p>
+              )}
+
+              {/* 환불은 왜 돌려줬는지까지 보여야 "왜 결제가 사라졌지"를 막는다.
+                  주문 행은 재구매 시 되살려 쓰느라 refund* 필드가 지워지므로
+                  이력 테이블을 기준으로 보여준다. 환불 후 다시 결제한 주문도
+                  과거 환불이 그대로 남는다. */}
+              {item.refundHistory.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-divider flex flex-col gap-3">
+                  {item.refundHistory.map((refund) => (
+                    <div key={refund.id} className="flex flex-col gap-1">
+                      <Row
+                        label={refund.restoredCoupon ? "쿠폰 복원" : "환불 금액"}
+                        value={
+                          refund.restoredCoupon
+                            ? "쿠폰 1장"
+                            : formatWon(refund.amount)
+                        }
+                        accent
+                      />
+                      <Row
+                        label="환불 일시"
+                        value={formatDate(refund.refundedAt)}
+                        muted
+                      />
+                      {refund.reason && (
+                        <p className="text-ink-muted text-caption break-keep">
+                          {refund.reason}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
 
               {item.isResultReadable && (

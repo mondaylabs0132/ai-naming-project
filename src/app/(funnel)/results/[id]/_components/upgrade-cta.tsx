@@ -42,11 +42,11 @@ const STATS = [
   {
     badge: "+19",
     title: "19개 이름\n추가 확인",
-    desc: "현재 1개를 포함해 총 20개의 이름을 확인할 수 있어요.",
+    desc: "현재 1개를 포함해 최대 20개의 이름을 확인할 수 있어요.",
   },
   {
     icon: <Mail size={22} className="text-primary" />,
-    title: "이름 20개\n메일 발송",
+    title: "전체 결과\n메일 발송",
     desc: "무료 결과는 24시간 뒤 사라지지만 메일은 남아요.",
   },
   {

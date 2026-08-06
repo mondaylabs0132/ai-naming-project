@@ -1,4 +1,16 @@
 export const runtime = "nodejs";
+// 이름 후보 수집 + 요약 1건.
+//
+// 120초로는 부족하다. AI_DEADLINE_MS(150초)는 callAI '호출 하나당' 예산이라
+// 이 라우트의 최악값은 150초 × 3회(collectNames 2 + 요약 1) = 450초다.
+// 상한에 걸려 프로세스가 죽으면 catch가 실행되지 않아 rollbackFreeUsage가
+// 불리지 않고, 사용자는 결과도 못 받은 채 무료 사용 1회를 잃는다.
+//
+// 그래서 플랫폼 상한인 300초까지 올린다. 다만 450 > 300이라 이것만으로
+// 구멍이 완전히 막히지는 않는다. 3번의 AI 호출이 모두 타임아웃까지 가는
+// 경우(예: OpenAI 장애)에는 여전히 강제 종료될 수 있다.
+// 완전히 막으려면 라우트 전체에 하나의 예산을 걸어 callAI까지 전달해야 한다.
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";

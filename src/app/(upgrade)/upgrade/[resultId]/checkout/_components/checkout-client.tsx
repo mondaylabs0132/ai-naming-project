@@ -218,12 +218,18 @@ export default function CheckoutClient({
               </p>
             </div>
             <p className="mt-1 text-caption text-ink-muted break-keep">
-              아이에게 어울리는 이름 20개 전체 확인
+              아이에게 어울리는 이름 최대 20개 전체 확인
+            </p>
+            {/* 결제 전에 고지한다. 결과를 받고 나서 "20개가 아니네"를 알게 되면
+                환불 요청으로 이어진다. */}
+            <p className="mt-1 text-[11px] text-ink-light break-keep">
+              사주·수리·발음 검증을 통과한 이름만 드리기 때문에, 아이 사주에
+              따라 20개보다 적을 수 있어요.
             </p>
 
             <div className="mt-4 flex flex-nowrap gap-1.5 min-[400px]:gap-2">
               {[
-                { Icon: FileText, label: "이름 20개 확인" },
+                { Icon: FileText, label: "최대 20개 확인" },
                 { Icon: Mail, label: "메일 발송" },
                 { Icon: Heart, label: "하트로 보관" },
               ].map(({ Icon, label }) => (

@@ -51,6 +51,35 @@ export async function markCouponUsed(admin: SupabaseClient, couponId: string) {
   if (error) throw error;
 }
 
+/** 환불로 되살린 쿠폰에 다시 주는 유효기간. */
+const RESTORE_EXTENSION_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * 환불 시 쿠폰 원상복구 (조건부 USED→ACTIVE, 멱등).
+ *
+ * 이미 만료됐으면 유효기간을 다시 준다. 사용자가 쿠폰을 못 쓴 이유가
+ * 우리 쪽 생성 실패이므로, 껍데기만 돌려주면 환불이 아니다.
+ */
+export async function restoreCoupon(admin: SupabaseClient, couponId: string) {
+  const { data } = await admin
+    .from("coupons")
+    .select("expires_at")
+    .eq("id", couponId)
+    .maybeSingle();
+
+  const patch: Record<string, unknown> = { status: "ACTIVE", used_at: null };
+  if (data && new Date(data.expires_at as string).getTime() <= Date.now()) {
+    patch.expires_at = new Date(Date.now() + RESTORE_EXTENSION_MS).toISOString();
+  }
+
+  const { error } = await admin
+    .from("coupons")
+    .update(patch)
+    .eq("id", couponId)
+    .eq("status", "USED");
+  if (error) throw error;
+}
+
 /**
  * '출생 전' 결제 완료자에게 무료재분석 쿠폰을 1장 발급한다.
  *
