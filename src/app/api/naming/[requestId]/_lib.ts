@@ -1038,7 +1038,11 @@ ${nameList}
     for (const r of parse(res.text, `배치 ${bi + 1}`)) {
       map[r.hangul] = {
         summary: r.summary,
-        categories: r.categories,
+        // AI가 필드를 통째로 빠뜨리는 경우가 있다. undefined로 두면
+        // buildDetailedExplanation의 detail.categories.map에서 TypeError가 나고,
+        // 그게 premium 라우트 전체를 500으로 떨어뜨린다.
+        // 이름 하나가 부실해지는 것과 결제자 전원이 결과를 못 받는 것은 다른 문제다.
+        categories: r.categories ?? [],
         detail: r.detail,
         tags: normalizeTags(r.tags ?? []),
       };
@@ -1068,6 +1072,9 @@ ${nameList}
         if (parsed[0]) {
           map[n.hangul] = {
             ...parsed[0],
+            // 배치 경로와 같은 이유로 여기서도 반드시 채운다.
+            // 스프레드는 없는 키를 만들어주지 않는다.
+            categories: parsed[0].categories ?? [],
             tags: normalizeTags(parsed[0].tags ?? []),
           };
         } else console.warn(`[generateDetailedReason] 재시도 실패:`, n.hangul);
@@ -1265,14 +1272,35 @@ export async function collectNames(params: {
       Boolean,
     );
     if (readings.length > 0) {
-      const { data: sameReading } = await supabase
+      // PostgREST 기본 상한(1000행)에 닿으면 결과가 조용히 잘린다.
+      // 지금은 기피 한자가 최대 5개(naming_surveys_avoid_hanja_id_check)이고
+      // 가장 큰 독음 그룹 5개를 다 골라도 568행이라 도달하지 않는다.
+      // 다만 한자 데이터가 늘거나 개수 제한이 풀리면 말없이 깨지므로,
+      // 상한을 명시하고 닿으면 로그로 알린다.
+      const VARIANT_ROW_LIMIT = 2000;
+      const { data: sameReading, error: variantError } = await supabase
         .from("hanja")
         .select("hanja, hangul_main, meanings")
-        .in("hangul_main", readings);
+        .in("hangul_main", readings)
+        .limit(VARIANT_ROW_LIMIT);
+
+      // 1차 조회와 같은 기준으로 실패를 다룬다. 여기서 조용히 넘어가면
+      // 이체자 확장만 통째로 사라져, 기피 한자를 반만 거른 채 결과가 나간다.
+      if (variantError) {
+        console.error(
+          `[collectNames] 이체자 조회 실패: ${variantError.message}`,
+        );
+        throw new Error("기피 한자 정보를 불러오지 못했습니다.");
+      }
 
       // 관계를 전이적으로 닫는다. 勛은 "공[勳]", 勲는 "勳의"라 둘 다 제3의
       // 글자만 가리킨다. 직접 연결만 보면 형제인 勛↔勲를 놓친다.
       const pool = (sameReading ?? []) as HanjaVariantRow[];
+      if (pool.length >= VARIANT_ROW_LIMIT) {
+        console.error(
+          `[collectNames] 이체자 후보가 상한(${VARIANT_ROW_LIMIT})에 닿아 잘렸을 수 있습니다. 독음=${readings.join(",")}`,
+        );
+      }
       const chosen = [...picked];
       for (let grew = true; grew; ) {
         grew = false;
@@ -1544,7 +1572,10 @@ export function buildDetailedExplanation(
   detail?: NameDetail,
 ): string {
   if (!detail) return name.reason;
-  const categoryText = detail.categories
+  // 타입상으로는 배열이지만 값은 AI 응답에서 온다. 필드가 빠진 채로 들어오면
+  // 여기서 터지고, 이 함수는 premium 라우트 try 안에서 불리므로 500이 된다.
+  // 생성 결과 전체를 잃느니 해당 항목만 비우는 편이 낫다.
+  const categoryText = (detail.categories ?? [])
     .map((c) => `[${c.title}]\n${c.description}`)
     .join("\n\n");
   const detailText = detail.detail?.trim() || name.reason;
@@ -1555,7 +1586,7 @@ export function buildDetailedExplanation(
     "",
     detailText,
     "",
-    detail.tags.join(" "),
+    (detail.tags ?? []).join(" "),
   ].join("\n");
 }
 
