@@ -44,6 +44,10 @@ export async function refundOrder(
 
   const now = new Date().toISOString();
 
+  // 환불 이력에 남길 값. 실결제 건에서만 채워진다.
+  let refundedAttemptId: string | null = null;
+  let tossResponse: unknown = null;
+
   // ── 1. 실결제분 취소 ────────────────────────────────────────
   if (order.amount > 0) {
     const { data: attempt } = await admin
@@ -81,12 +85,15 @@ export async function refundOrder(
       return { ok: false, code: result.code, message: result.message };
     }
 
+    refundedAttemptId = attempt.id as string;
+    tossResponse = result.payment ?? { alreadyCanceled: true };
+
     const { error } = await admin
       .from("payment_attempts")
       .update({
         status: "REFUNDED",
         canceled_at: now,
-        cancel_response: result.payment ?? { alreadyCanceled: true },
+        cancel_response: tossResponse,
       })
       .eq("id", attempt.id)
       .neq("status", "REFUNDED");
@@ -100,21 +107,51 @@ export async function refundOrder(
   }
 
   // ── 3. 주문을 REFUNDED로 확정 ───────────────────────────────
-  {
-    const { error } = await admin
-      .from("premium_orders")
-      .update({
-        status: "REFUNDED",
-        refunded_at: now,
-        refund_amount: order.amount,
-        refund_reason: reason.slice(0, 500),
-      })
-      .eq("id", order.id)
-      .eq("status", "COMPLETED");
-    if (error) throw error;
+  // .select()로 실제 갱신된 행을 받는다. 이 UPDATE는 COMPLETED일 때만 걸리므로,
+  // 행이 돌아왔다면 이번 호출이 환불을 확정한 유일한 주체라는 뜻이다.
+  // 이걸 아래 이력 삽입의 조건으로 삼아 중복 기록을 막는다.
+  const { data: refundedOrder, error: orderError } = await admin
+    .from("premium_orders")
+    .update({
+      status: "REFUNDED",
+      refunded_at: now,
+      refund_amount: order.amount,
+      refund_reason: reason.slice(0, 500),
+    })
+    .eq("id", order.id)
+    .eq("status", "COMPLETED")
+    .select("id")
+    .maybeSingle();
+  if (orderError) throw orderError;
+
+  // ── 4. 환불 이력 적재 ───────────────────────────────────────
+  // premium_orders는 request_id당 1행이고 재구매 시 되살려 쓰므로,
+  // refunded_at/refund_amount/refund_reason이 지워진다. 분쟁·정산의 근거는
+  // 이 테이블에만 남는다. 특히 쿠폰 100% 건은 payment_attempts 행조차 없어
+  // 여기 기록하지 않으면 환불한 사실 자체가 사라진다.
+  if (refundedOrder) {
+    const { error } = await admin.from("refunds").insert({
+      premium_order_id: order.id,
+      request_id: order.request_id,
+      user_id: order.user_id,
+      payment_attempt_id: refundedAttemptId,
+      coupon_id: order.coupon_id,
+      amount: order.amount,
+      reason: reason.slice(0, 500),
+      toss_response: tossResponse,
+      refunded_at: now,
+    });
+
+    // 이력을 못 남겼다고 이미 끝난 환불을 되돌릴 수는 없다.
+    // 돈은 나갔으므로 성공으로 처리하되, 반드시 사람이 볼 수 있게 남긴다.
+    if (error) {
+      console.error(
+        `[refund] 환불 이력 적재 실패 — 수동 확인 필요 orderId=${order.id} amount=${order.amount}: ${error.message}`,
+      );
+    }
   }
 
-  // ── 4. 유료 회원 여부 재계산 ────────────────────────────────
+  // ── 5. 유료 회원 여부 재계산 ────────────────────────────────
   // 다른 결제 건이 남아 있으면 유료 회원 그대로 둔다.
   {
     const { count } = await admin
@@ -132,7 +169,7 @@ export async function refundOrder(
     }
   }
 
-  // ── 5. 재구매 창 열어 두기 ──────────────────────────────────
+  // ── 6. 재구매 창 열어 두기 ──────────────────────────────────
   // 환불만 해 주고 결제 기간이 닫혀 있으면 다시 사고 싶어도 못 산다.
   {
     const { data: request } = await admin
