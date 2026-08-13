@@ -4,6 +4,8 @@ import { X } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import NameResultCard from "./_components/name-result-card";
+import AnalysisReport from "./_components/analysis-report";
+import { parseGrids } from "./_lib/parse-grids";
 import UpgradeCta from "./_components/upgrade-cta";
 
 export default async function ResultPage({
@@ -25,7 +27,7 @@ export default async function ResultPage({
   const { data: freeRow, error } = await supabase
     .from("name_candidates")
     .select(
-      "name_hangul, name_hanja, hanja1, hanja2, hangul1, hangul2, meaning1, meaning2, meaning_summary, tags",
+      "name_hangul, name_hanja, hanja1, hanja2, hangul1, hangul2, meaning1, meaning2, meaning_summary, tags, saju_summary, ohang1, ohang2, grids",
     )
     .eq("request_id", id)
     .eq("sort_order", 0)
@@ -59,6 +61,20 @@ export default async function ResultPage({
     ],
     summary: freeRow.meaning_summary as string,
     tags: (freeRow.tags as string[]) ?? [],
+  };
+
+  const saju = Array.isArray(freeRow.saju_summary)
+    ? (freeRow.saju_summary as string[])
+    : [];
+  const analysis = {
+    fullHangul: freeName.fullHangul,
+    hanjaOhang: [
+      { hanja: freeRow.hanja1 as string, ohang: freeRow.ohang1 as string | null },
+      { hanja: freeRow.hanja2 as string, ohang: freeRow.ohang2 as string | null },
+    ],
+    sajuText: saju[0] ?? "",
+    ohangText: saju[1] ?? "",
+    grids: parseGrids(freeRow.grids),
   };
 
   return (
@@ -106,6 +122,7 @@ export default async function ResultPage({
       </div>
 
       <NameResultCard freeName={freeName} />
+      <AnalysisReport data={analysis} />
       <UpgradeCta resultId={id} />
     </div>
   );
