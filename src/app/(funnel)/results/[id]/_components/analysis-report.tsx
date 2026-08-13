@@ -106,7 +106,9 @@ export default function AnalysisReport({
   const banner = buildUpsellBanner(data.grids);
 
   const badges = data.hanjaOhang.filter((b) => b.hanja && b.ohang);
-  const hasOhangCard = Boolean(data.sajuText || data.ohangText);
+  // 설명 텍스트가 없어도 오행 배지만으로 카드를 보여줄 수 있다.
+  const hasOhangCard =
+    badges.length > 0 || Boolean(data.sajuText || data.ohangText);
   const hasGridsCard = data.grids.length > 0;
   // 상세 설명이 하나도 없으면 토글을 눌러도 빈 목록만 보이므로 버튼째 숨긴다.
   const hasGridDetails = data.grids.some((g) => g.description);
