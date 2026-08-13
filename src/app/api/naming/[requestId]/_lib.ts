@@ -390,8 +390,13 @@ reason은 순한글로만 작성하세요. 영어 혼용 금지.
 // 한 번의 호출로 요청할 이름 후보 수와 그에 맞춘 출력 상한.
 // 항목 1건이 약 90토큰이므로 둘은 항상 함께 움직여야 한다.
 // 개수를 늘릴 때 상한을 안 올리면 응답이 잘리고, 잘린 JSON은 파싱에 실패해 0건이 된다.
+//
+// 상한은 예상치(60개 × 약 90토큰 ≈ 5,400)의 2배로 잡는다. 6,000이었을 때는
+// reason이 조금만 길어져도 잘려서, 라운드 하나가 통째로 0건이 되고
+// 그만큼 생성 시간이 늘었다. 출력은 생성된 만큼만 과금되므로 여유가 손해가 아니다.
+// (gpt-4o-mini 출력 상한 16,384 이내)
 export const NAMES_PER_CALL = 60;
-const NAMES_MAX_TOKENS = 6000;
+const NAMES_MAX_TOKENS = 12000;
 
 // 유료 결과로 내보낼 이름 개수의 목표치와 하한.
 //
@@ -1061,26 +1066,37 @@ ${nameList}
       `[generateDetailedReason] 재시도 ${missing.length}개 (미응답 ${notReturned.length} / 태그부족 ${poorTags.length}):`,
       missing.map((n) => n.hangul),
     );
-    for (const n of missing) {
-      try {
-        // 1200자 본문에 categories·tags까지 더하면 한국어 기준 4,096 토큰을
-        // 넘길 수 있다. 상한을 넘기면 잘린 JSON이 와서 이름 하나가 통째로 빈다.
-        // 생성된 만큼만 과금되므로 상한을 넉넉히 두는 편이 안전하다.
-        const retry = await callAI(model, "", makePrompt([n]), 8192);
-        totalCost += retry.cost;
-        const parsed = parse(retry.text, `재시도 ${n.hangul}`);
-        if (parsed[0]) {
-          map[n.hangul] = {
-            ...parsed[0],
-            // 배치 경로와 같은 이유로 여기서도 반드시 채운다.
-            // 스프레드는 없는 키를 만들어주지 않는다.
-            categories: parsed[0].categories ?? [],
-            tags: normalizeTags(parsed[0].tags ?? []),
-          };
-        } else console.warn(`[generateDetailedReason] 재시도 실패:`, n.hangul);
-      } catch (e) {
-        console.error(`[generateDetailedReason] 재시도 오류 (${n.hangul}):`, e);
+    // 이름별 재시도는 서로 독립이라 병렬로 돌린다. 순차 루프였을 때는
+    // 배치 하나가 잘려 5개가 누락되면 이름당 30~60초 × 5가 그대로 대기 시간이 됐고,
+    // 이것이 유료 생성이 3분을 넘기는 가장 큰 원인이었다.
+    // (429 등 일시 오류는 callAI 내부 재시도가 흡수한다)
+    //
+    // 1200자 본문에 categories·tags까지 더하면 한국어 기준 4,096 토큰을
+    // 넘길 수 있다. 상한을 넘기면 잘린 JSON이 와서 이름 하나가 통째로 빈다.
+    // 생성된 만큼만 과금되므로 상한을 넉넉히 두는 편이 안전하다.
+    const retried = await Promise.allSettled(
+      missing.map((n) => callAI(model, "", makePrompt([n]), 8192)),
+    );
+    for (const [i, settledRetry] of retried.entries()) {
+      const n = missing[i];
+      if (settledRetry.status === "rejected") {
+        console.error(
+          `[generateDetailedReason] 재시도 오류 (${n.hangul}):`,
+          settledRetry.reason,
+        );
+        continue;
       }
+      totalCost += settledRetry.value.cost;
+      const parsed = parse(settledRetry.value.text, `재시도 ${n.hangul}`);
+      if (parsed[0]) {
+        map[n.hangul] = {
+          ...parsed[0],
+          // 배치 경로와 같은 이유로 여기서도 반드시 채운다.
+          // 스프레드는 없는 키를 만들어주지 않는다.
+          categories: parsed[0].categories ?? [],
+          tags: normalizeTags(parsed[0].tags ?? []),
+        };
+      } else console.warn(`[generateDetailedReason] 재시도 실패:`, n.hangul);
     }
   }
 
@@ -1324,17 +1340,35 @@ export async function collectNames(params: {
     const safeMoods = (survey.mood_keywords ?? []).filter((k) =>
       ALLOWED_MOOD_KEYWORDS.includes(k),
     );
-    const { names: aiNames, cost } = await generateNames({
-      surname: surname.hangul,
-      gender: survey.gender,
-      ohang: lacking,
-      dolrimja: survey.generation_name ?? undefined,
-      model,
-      moodKeywords: safeMoods,
-      // 프롬프트에는 사용자가 화면에서 본 글자 그대로 보여준다.
-      avoidHanja: avoidHanjaDisplay,
-    });
-    totalCost += cost;
+    // 첫 라운드만 두 번 병렬 호출해 후보 120개에서 시작한다.
+    // 필터 통과율이 낮은 날은 라운드를 다시 도는 것이 지연의 주범인데,
+    // 라운드는 순차라 왕복마다 수십 초가 쌓인다. 어차피 재시도 때 냈을 비용을
+    // 첫 라운드에 미리 내서 왕복 횟수 자체를 줄인다.
+    const callCount = attempts === 0 ? 2 : 1;
+    const settledCalls = await Promise.allSettled(
+      Array.from({ length: callCount }, () =>
+        generateNames({
+          surname: surname.hangul,
+          gender: survey.gender,
+          ohang: lacking,
+          dolrimja: survey.generation_name ?? undefined,
+          model,
+          moodKeywords: safeMoods,
+          // 프롬프트에는 사용자가 화면에서 본 글자 그대로 보여준다.
+          avoidHanja: avoidHanjaDisplay,
+        }),
+      ),
+    );
+    // 병렬 중 하나만 실패하면 나머지로 진행한다. 전부 실패했을 때만 던져서
+    // 단일 호출이던 시절과 같은 실패 의미(라우트 500 → 리퍼 재시도)를 유지한다.
+    const fulfilledCalls = settledCalls.flatMap((s) =>
+      s.status === "fulfilled" ? [s.value] : [],
+    );
+    if (fulfilledCalls.length === 0) {
+      throw (settledCalls[0] as PromiseRejectedResult).reason;
+    }
+    const aiNames = fulfilledCalls.flatMap((c) => c.names);
+    totalCost += fulfilledCalls.reduce((s, c) => s + c.cost, 0);
 
     // AI가 응답을 못 냈거나 JSON 파싱에 실패하면 빈 배열이 온다.
     // 토큰은 이미 소비된 뒤이므로, 원인 추적을 위해 반드시 남긴다.
@@ -1465,7 +1499,7 @@ export async function collectNames(params: {
     }
     // avoidedHanja가 크면 프롬프트의 금지 지시가 안 먹히고 있다는 뜻이다.
     console.log(
-      `[collectNames] requested=${NAMES_PER_CALL} ai=${aiNames.length} passed=${results.length - beforeCount} avoidedHanja=${avoidedByHanja} badReading=${mismatchedReading} total=${results.length}/${target} attempt=${attempts + 1}`,
+      `[collectNames] requested=${NAMES_PER_CALL * callCount} ai=${aiNames.length} passed=${results.length - beforeCount} avoidedHanja=${avoidedByHanja} badReading=${mismatchedReading} total=${results.length}/${target} attempt=${attempts + 1}`,
     );
     attempts++;
   }

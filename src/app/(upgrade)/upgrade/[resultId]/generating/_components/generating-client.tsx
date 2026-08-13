@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, RefreshCcw, Siren, Undo2 } from "lucide-react";
+import { CheckCircle2, MailCheck, RefreshCcw, Siren, Undo2 } from "lucide-react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -13,6 +13,7 @@ import {
   PREMIUM_STEPS,
   premiumProgressAt,
   progressLabelAt,
+  REASSURE_AT_SEC,
   stepStatusAt,
 } from "../_lib/premium-stages";
 
@@ -612,13 +613,36 @@ function AnalyzingView({
           잠깐! 더 좋은 결과를 위한 과정이에요
         </p>
 
+        {/* 소요 시간은 실측 기준으로 적는다. "1~2분"이라고 해 놓고 3분을 넘기면
+            그때부터 사용자는 오류를 의심하기 시작한다. */}
         <p className="mt-1.5 text-caption leading-[1.6] text-ink">
           정확하고 의미 있는 이름을 찾기 위해 다양한 요소를 종합적으로 분석하고
           있어요.
           <br />
-          보통 1 ~ 2분 내외로 결과를 받아보실 수 있어요.
+          보통 2~3분 정도 걸리고, 검증할 이름이 많으면 5분까지 걸릴 수 있어요.
         </p>
       </div>
+
+      {/* 평균 소요를 넘기면 안심 카드를 띄운다. 오래 걸릴 때 사용자가 걱정하는 건
+          두 가지다 — "닫으면 날아가나?"(→ 이메일로도 감), "돈만 나간 건가?"(→ 자동 환불).
+          둘 다 실제 동작이므로 사실 그대로 안내한다. */}
+      {elapsedSec >= REASSURE_AT_SEC && !isDone && (
+        <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card animate-stage-in">
+          <p className="flex items-center gap-2 text-[14px] font-semibold text-ink">
+            <MailCheck size={16} className="text-primary" />
+            기다리지 않으셔도 돼요
+          </p>
+
+          <p className="mt-1.5 text-caption leading-[1.6] text-ink-muted break-keep">
+            분석은 서버에서 계속 진행되고, 완료되면{" "}
+            <span className="font-semibold text-ink">
+              결과 링크를 이메일로도 보내드려요.
+            </span>{" "}
+            창을 닫으셔도 결과는 사라지지 않아요. 만에 하나 생성에 실패하면
+            자동으로 환불해드리니 안심하세요.
+          </p>
+        </div>
+      )}
 
       {/* 아래 정보가 더 부정확하여 주석처리 */}
       {/* <div className="mt-4 rounded-lg bg-surface p-5 text-left shadow-card">
