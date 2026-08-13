@@ -12,6 +12,8 @@ export type Grids = {
   형격: GridItem;
   이격: GridItem;
   정격: GridItem;
+  // rawStroke: 성+이름 모든 글자의 원획 합(사용자가 세어볼 수 있는 "총획").
+  // 총격.stroke(사격 수리의 합을 81수로 정규화한 값)와는 다른 숫자다.
   총격: GridItem & { rawStroke: number };
   goodCount: number;
   isAllGood: boolean;
@@ -511,7 +513,10 @@ export function getFourGrids(
     jeong = normalize(A + B + C + D);
   }
   const chong = normalize(won + hyeong + i + jeong);
-  const rawStroke = won + hyeong + i + jeong;
+  // "총획"으로 화면·프롬프트에 노출되는 값. 사격 수리의 합(won+hyeong+i+jeong)을
+  // 쓰면 각 글자가 3번씩 중복 합산돼 실제 획수의 3배가 표시된다(31획 → 93획).
+  const rawStroke =
+    sungStrokes.reduce((a, b) => a + b, 0) + name1Stroke + name2Stroke;
   const goodCount = [won, hyeong, i, jeong].filter(
     (s) => stroke81[s]?.luck === "good",
   ).length;
