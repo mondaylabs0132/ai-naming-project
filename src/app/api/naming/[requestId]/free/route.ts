@@ -126,13 +126,20 @@ export async function POST(
       );
     }
 
-    pool.sort((a, b) => b.score - a.score);
+    // 정렬 기준은 결과 화면의 순위 계산(score desc, sound_score desc)과 맞춘다.
+    pool.sort((a, b) => b.score - a.score || b.soundScore - a.soundScore);
+    // 무료 이름은 상위 5개를 피해서 고른다(최고 이름은 유료의 몫).
+    //
+    // 임계값 70/60은 calcScore의 흉 페널티 도입(-12/-20)에 맞춰 낮춘 값이다.
+    // 예전 기준(80/75)을 그대로 두면 흉 있는 이름들이 감점된 뒤라
+    // slice(5)에서 기준을 넘는 이름이 드물어지고, 마지막 폴백(pool.find)이
+    // 상위 5위 안의 무결점 이름을 무료로 내주게 된다.
     const freeName =
       pool
         .slice(5)
-        .find((r) => r.grids.형격.luck === "good" && r.score >= 80) ??
-      pool.slice(5).find((r) => r.score >= 75) ??
-      pool.find((r) => r.score >= 75) ??
+        .find((r) => r.grids.형격.luck === "good" && r.score >= 70) ??
+      pool.slice(5).find((r) => r.score >= 60) ??
+      pool.find((r) => r.score >= 60) ??
       pool[0];
 
     const { summary, tags, cost: briefCost } = await generateBriefDetail(
