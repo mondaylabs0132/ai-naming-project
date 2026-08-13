@@ -108,6 +108,8 @@ export default function AnalysisReport({
   const badges = data.hanjaOhang.filter((b) => b.hanja && b.ohang);
   const hasOhangCard = Boolean(data.sajuText || data.ohangText);
   const hasGridsCard = data.grids.length > 0;
+  // 상세 설명이 하나도 없으면 토글을 눌러도 빈 목록만 보이므로 버튼째 숨긴다.
+  const hasGridDetails = data.grids.some((g) => g.description);
 
   if (!hasOhangCard && !hasGridsCard) return null;
 
@@ -247,27 +249,29 @@ export default function AnalysisReport({
               })}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setGridsOpen((v) => !v)}
-              className="mt-3 flex w-full items-center justify-center gap-1 rounded-[12px] py-2 font-semibold"
-              style={{
-                fontSize: "12px",
-                color: "#7C6FCD",
-                background: "#F5F3FC",
-              }}
-            >
-              {gridsOpen ? "상세 풀이 접기" : "상세 풀이 보기"}
-              <ChevronDown
-                size={14}
+            {hasGridDetails && (
+              <button
+                type="button"
+                onClick={() => setGridsOpen((v) => !v)}
+                className="mt-3 flex w-full items-center justify-center gap-1 rounded-[12px] py-2 font-semibold"
                 style={{
-                  transform: gridsOpen ? "rotate(180deg)" : undefined,
-                  transition: "transform 0.2s ease",
+                  fontSize: "12px",
+                  color: "#7C6FCD",
+                  background: "#F5F3FC",
                 }}
-              />
-            </button>
+              >
+                {gridsOpen ? "상세 풀이 접기" : "상세 풀이 보기"}
+                <ChevronDown
+                  size={14}
+                  style={{
+                    transform: gridsOpen ? "rotate(180deg)" : undefined,
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+            )}
 
-            {gridsOpen && (
+            {hasGridDetails && gridsOpen && (
               <ul className="mt-3 space-y-3">
                 {data.grids
                   .filter((g) => g.description)
