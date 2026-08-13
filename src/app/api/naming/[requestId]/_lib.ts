@@ -874,6 +874,7 @@ export async function generateNames(options: {
 아래 조건을 반드시 지켜주세요:
 1. ${genderRule}
 2. 이름은 성씨 제외 두 글자만 출력 (예: 성씨가 박이면 "준서"만, "박준서" 절대 금지)
+   이름 첫 글자가 성씨와 같은 소리면 금지 (예: 성씨가 "이"면 "이현" 금지 — "이이현"이 되므로)
 3. hangul과 hanja의 독음이 반드시 일치할 것
    (예: 銀星은 "은성"이지 "은별"이 아니다. 晶雲은 "정운"이지 "정우"가 아니다)
 4. 두 글자 이름 ${NAMES_PER_CALL}개 생성, 비슷한 이름 반복 금지${avoidHanjaText}
@@ -1405,10 +1406,16 @@ export async function collectNames(params: {
     // 불완전해 정상 이름을 버린 것인지 구분할 수 없다.
     const mismatchSamples: string[] = [];
 
+    // 성씨의 마지막 음절. 이름 첫 글자가 이와 같으면(이+이현 → "이이현")
+    // 부르기 어색해 걸러낸다. 이름끼리의 중복(chars[0] === chars[1])만
+    // 검사하던 기존 필터가 성씨와의 중복은 놓치고 있었다.
+    const surnameLastSyllable = [...surname.hangul].at(-1);
+
     const valid = aiNames.filter((n) => {
       if (usedNames.has(n.hangul)) return false;
       const chars = [...n.hangul];
       if (chars.length !== 2 || chars[0] === chars[1]) return false;
+      if (chars[0] === surnameLastSyllable) return false;
       if (avoidChars.size > 0 && chars.some((c) => avoidChars.has(c)))
         return false;
       // 사용자가 배제한 한자가 한 글자라도 있으면 탈락시킨다.
