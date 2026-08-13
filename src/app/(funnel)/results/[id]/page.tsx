@@ -24,7 +24,9 @@ export default async function ResultPage({
   const supabase = await createClient();
   const { data: freeRow, error } = await supabase
     .from("name_candidates")
-    .select("given_name_hangul, meaning_summary, tags")
+    .select(
+      "name_hangul, name_hanja, hanja1, hanja2, hangul1, hangul2, meaning1, meaning2, meaning_summary, tags",
+    )
     .eq("request_id", id)
     .eq("sort_order", 0)
     .maybeSingle();
@@ -40,7 +42,21 @@ export default async function ResultPage({
   }
 
   const freeName = {
-    hangul: freeRow.given_name_hangul as string,
+    fullHangul: freeRow.name_hangul as string,
+    fullHanja: freeRow.name_hanja as string,
+    // 이름 두 글자의 한자 + 훈(뜻) + 음. 훈이 여러 개면 대표 훈 하나만 쓴다.
+    hanjaChars: [
+      {
+        hanja: freeRow.hanja1 as string,
+        reading: freeRow.hangul1 as string,
+        meaning: ((freeRow.meaning1 as string[]) ?? [])[0] ?? "",
+      },
+      {
+        hanja: freeRow.hanja2 as string,
+        reading: freeRow.hangul2 as string,
+        meaning: ((freeRow.meaning2 as string[]) ?? [])[0] ?? "",
+      },
+    ],
     summary: freeRow.meaning_summary as string,
     tags: (freeRow.tags as string[]) ?? [],
   };

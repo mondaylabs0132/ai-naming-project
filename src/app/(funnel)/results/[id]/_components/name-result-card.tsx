@@ -11,8 +11,16 @@ const FREE_SLOT = "01";
 
 const TOTAL = 20;
 
+export type HanjaChar = {
+  hanja: string;
+  reading: string; // 음 (예: "주")
+  meaning: string; // 대표 훈 (예: "구슬")
+};
+
 export type FreeName = {
-  hangul: string;
+  fullHangul: string; // 성 + 이름 (예: "김주리")
+  fullHanja: string; // 성 + 이름 한자 (예: "金珠莉")
+  hanjaChars: HanjaChar[];
   summary: string;
   tags: string[];
 };
@@ -20,7 +28,9 @@ export type FreeName = {
 export default function NameResultCard({ freeName }: { freeName: FreeName }) {
   const NAME = {
     index: FREE_SLOT,
-    name: freeName.hangul,
+    name: freeName.fullHangul,
+    hanja: freeName.fullHanja,
+    hanjaChars: freeName.hanjaChars.filter((c) => c.hanja),
     icon: "/assets/purple_heart.png",
     highlight: "",
     desc: freeName.summary,
@@ -79,12 +89,31 @@ export default function NameResultCard({ freeName }: { freeName: FreeName }) {
         .result-slide.is-snapped .slide-icon {
           width: 28px; height: 28px;
         }
+        /* 내용이 늘어나도 잘리지 않도록 고정 height 대신 min-height 사용.
+           높이 애니메이션은 사라지지만 scale 전환이 시각 효과를 대신한다. */
         .result-slide .slide-card {
-          height: 200px;
-          transition: height 0.35s ease;
+          min-height: 200px;
+          transition: min-height 0.35s ease;
         }
         .result-slide.is-snapped .slide-card {
-          height: 300px;
+          min-height: 320px;
+        }
+        /* 한자 표기 (성+이름) */
+        .result-slide .slide-hanja {
+          font-size: 12px;
+          color: #8B849E;
+          transition: font-size 0.35s ease, color 0.35s ease;
+        }
+        .result-slide.is-snapped .slide-hanja {
+          font-size: 15px;
+          color: #6B6480;
+        }
+        /* 한자별 훈·음 (스포트라이트만) */
+        .result-slide .slide-hanja-detail {
+          display: none;
+        }
+        .result-slide.is-snapped .slide-hanja-detail {
+          display: flex;
         }
         .result-slide .slide-highlight {
           display: none;
@@ -274,6 +303,55 @@ export default function NameResultCard({ freeName }: { freeName: FreeName }) {
                               style={{ objectFit: "contain" }}
                             />
                           </div>
+
+                          {/* 한자 표기 (성+이름) */}
+                          {NAME.hanja && (
+                            <p
+                              className="slide-hanja mt-1 text-center"
+                              style={{ letterSpacing: "2px" }}
+                            >
+                              {NAME.hanja}
+                            </p>
+                          )}
+
+                          {/* 한자별 훈·음 (스포트라이트만) */}
+                          {NAME.hanjaChars.length > 0 && (
+                            <div className="slide-hanja-detail mt-2 justify-center gap-2">
+                              {NAME.hanjaChars.map((c, i) => (
+                                <span
+                                  key={`${c.hanja}-${i}`}
+                                  className="inline-flex items-center gap-[6px]"
+                                  style={{
+                                    background: "#F5F3FC",
+                                    borderRadius: "10px",
+                                    padding: "5px 10px",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: "17px",
+                                      fontWeight: 700,
+                                      color: "#2D2540",
+                                      lineHeight: 1,
+                                    }}
+                                  >
+                                    {c.hanja}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "#6B6480",
+                                      lineHeight: 1,
+                                    }}
+                                  >
+                                    {[c.meaning, c.reading]
+                                      .filter(Boolean)
+                                      .join(" ")}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
 
                           {/* 하이라이트 (스포트라이트만) */}
                           {NAME.highlight && (
