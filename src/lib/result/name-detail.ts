@@ -91,17 +91,28 @@ function buildMeanings(meanings: unknown, reading: string): string[] {
 
 function buildGrids(raw: unknown): DetailGridItem[] {
   if (!raw || typeof raw !== "object") return [];
-  const grids = raw as Record<string, { stroke?: number; luck?: string; description?: string }>;
+  const grids = raw as Record<
+    string,
+    { stroke?: unknown; luck?: unknown; description?: unknown }
+  >;
 
   return GRID_LABELS.flatMap((label) => {
     const item = grids[label];
     if (!item || typeof item.stroke !== "number") return [];
+
+    // jsonb는 타입 보장이 없으므로 luck/description을 런타임에서 정규화한다.
+    const luck: DetailGridItem["luck"] =
+      item.luck === "good" || item.luck === "bad" || item.luck === "mixed"
+        ? item.luck
+        : "mixed";
+
     return [
       {
         label,
         stroke: item.stroke,
-        luck: (item.luck ?? "mixed") as DetailGridItem["luck"],
-        description: item.description ?? "",
+        luck,
+        description:
+          typeof item.description === "string" ? item.description : "",
       },
     ];
   });
