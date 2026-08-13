@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, Lightbulb } from "lucide-react";
 import type { GridItem, Luck } from "../_lib/parse-grids";
 
 const LUCK_LABEL: Record<Luck, string> = {
@@ -34,6 +35,42 @@ export type AnalysisData = {
   grids: GridItem[];
 };
 
+// 수리 결과에 따라 업셀 배너 문구를 고른다.
+// DB 전수 확인 기준 luck은 good/bad/mixed 3종뿐이라 분기는 아래 4가지로 닫힌다:
+// ① 凶 있음 ② 凶 없고 中 있음 ③ 모두 吉 ④ grids 자체가 비어 있음(방어) → 배너 생략
+function buildUpsellBanner(grids: GridItem[]) {
+  const format = (items: GridItem[], mark: string) =>
+    items
+      .slice(0, 2)
+      .map((g) => `${g.label} ${g.stroke}획(${mark})`)
+      .join("·");
+
+  const bads = grids.filter((g) => g.luck === "bad");
+  if (bads.length > 0) {
+    return {
+      title: `${format(bads, "凶")}이 마음에 걸리시나요?`,
+      body: "프리미엄에는 다른 수리 구성의 이름 19개가 더 준비되어 있어요.",
+    };
+  }
+
+  const mixeds = grids.filter((g) => g.luck === "mixed");
+  if (mixeds.length > 0) {
+    return {
+      title: `${format(mixeds, "中")}이 조금 아쉬우신가요?`,
+      body: "프리미엄에는 다른 수리 구성의 이름 19개가 더 준비되어 있어요.",
+    };
+  }
+
+  if (grids.length > 0) {
+    return {
+      title: "수리 사격이 모두 吉인 좋은 이름이에요!",
+      body: "이런 좋은 구성의 이름 19개가 더 기다리고 있어요.",
+    };
+  }
+
+  return null;
+}
+
 function Card({
   title,
   children,
@@ -57,9 +94,16 @@ function Card({
   );
 }
 
-export default function AnalysisReport({ data }: { data: AnalysisData }) {
+export default function AnalysisReport({
+  data,
+  resultId,
+}: {
+  data: AnalysisData;
+  resultId: string;
+}) {
   const [ohangOpen, setOhangOpen] = useState(false);
   const [gridsOpen, setGridsOpen] = useState(false);
+  const banner = buildUpsellBanner(data.grids);
 
   const badges = data.hanjaOhang.filter((b) => b.hanja && b.ohang);
   const hasOhangCard = Boolean(data.sajuText || data.ohangText);
@@ -254,6 +298,47 @@ export default function AnalysisReport({ data }: { data: AnalysisData }) {
               </ul>
             )}
           </Card>
+        )}
+
+        {/* ③ 수리 결과 맞춤 업셀 배너 */}
+        {banner && (
+          <Link
+            href={`/upgrade/${resultId}`}
+            className="block rounded-[20px] px-4 py-4"
+            style={{
+              background:
+                "linear-gradient(135deg, #EAE7F8 0%, #F5F3FC 100%)",
+              border: "1.5px solid #D6D0EE",
+            }}
+          >
+            <div className="flex items-start gap-2">
+              <Lightbulb
+                size={18}
+                className="mt-[1px] shrink-0"
+                style={{ color: "#7C6FCD" }}
+              />
+              <div className="min-w-0">
+                <p
+                  className="font-bold leading-[1.5]"
+                  style={{ fontSize: "13.5px", color: "#2D2540" }}
+                >
+                  {banner.title}
+                </p>
+                <p
+                  className="mt-1 leading-[1.6]"
+                  style={{ fontSize: "12.5px", color: "#6B6480" }}
+                >
+                  {banner.body}
+                </p>
+                <span
+                  className="mt-2 inline-flex items-center font-semibold"
+                  style={{ fontSize: "12.5px", color: "#7C6FCD" }}
+                >
+                  이름 더 보기 →
+                </span>
+              </div>
+            </div>
+          </Link>
         )}
       </div>
     </section>

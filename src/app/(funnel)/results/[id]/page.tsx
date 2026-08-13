@@ -122,7 +122,7 @@ export default async function ResultPage({
       </div>
 
       <NameResultCard freeName={freeName} />
-      <AnalysisReport data={analysis} />
+      <AnalysisReport data={analysis} resultId={id} />
       <UpgradeCta resultId={id} />
     </div>
   );

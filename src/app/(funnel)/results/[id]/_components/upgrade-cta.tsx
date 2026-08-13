@@ -41,8 +41,8 @@ async function copyText(text: string) {
 const STATS = [
   {
     badge: "+19",
-    title: "19개 이름\n추가 확인",
-    desc: "현재 1개를 포함해 최대 20개의 이름을 확인할 수 있어요.",
+    title: "상위 점수\n이름 공개",
+    desc: "점수가 더 높은 이름까지 최대 20개를 확인할 수 있어요.",
   },
   {
     icon: <Mail size={22} className="text-primary" />,
@@ -133,10 +133,12 @@ export default function UpgradeCta({ resultId }: { resultId: string }) {
   return (
     <div className="mx-5 mt-2 bg-primary-pale rounded-xl p-5">
       <p className="flex items-center gap-1.5 font-bold text-ink text-section-title">
-        <Crown size={18} className="text-primary" />더 많은 이름을 보고 싶다면?
+        <Crown size={18} className="text-primary" />더 높은 평가를 받은 이름들이
+        기다리고 있어요
       </p>
       <p className="mt-1 text-ink-muted text-caption">
-        프리미엄으로 더 많은 혜택을 누려보세요!
+        지금 이름은 추천 후보 중 하나일 뿐이에요. 오행과 수리까지 더 좋은
+        이름을 확인해보세요.
       </p>
 
       <div className="mt-4 bg-surface rounded-lg p-4 flex items-stretch">
