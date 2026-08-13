@@ -20,4 +20,8 @@ set
     '{총격,rawStroke}',
     to_jsonb((grids -> '정격' ->> 'stroke')::int)
   )
-where total_strokes is distinct from (grids -> '정격' ->> 'stroke')::int;
+-- total_strokes와 grids.총격.rawStroke 어느 한쪽만 어긋난 행도 놓치지 않도록
+-- 둘 다 비교한다. 둘은 코드에서 같은 값으로 쓰이지만 저장은 별개다.
+where total_strokes is distinct from (grids -> '정격' ->> 'stroke')::int
+   or grids #> '{총격,rawStroke}' is distinct from
+      to_jsonb((grids -> '정격' ->> 'stroke')::int);

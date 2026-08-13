@@ -493,6 +493,13 @@ export function getFourGrids(
   name1Stroke: number,
   name2Stroke: number,
 ): Grids {
+  // 사격 공식도 rawStroke 합산도 성씨 1~2자를 전제한다. 3자 이상이 들어오면
+  // 사격은 앞 두 값만 쓰고 rawStroke는 전부 합산해 둘이 조용히 어긋난다.
+  if (sungStrokes.length !== 1 && sungStrokes.length !== 2) {
+    throw new RangeError(
+      `sungStrokes는 1~2개여야 합니다 (받은 개수: ${sungStrokes.length})`,
+    );
+  }
   let won: number, hyeong: number, i: number, jeong: number;
   if (sungStrokes.length === 1) {
     const [A, B, C] = [sungStrokes[0], name1Stroke, name2Stroke];
