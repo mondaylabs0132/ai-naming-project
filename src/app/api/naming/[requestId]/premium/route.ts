@@ -216,7 +216,9 @@ export async function POST(
       usedNames,
     });
 
-    pool.sort((a, b) => b.score - a.score);
+    // 정렬 기준은 결과 화면의 순위 계산(score desc, sound_score desc)과 맞춘다.
+    // score만으로 자르면 동점 경계에서 화면 순위와 저장 순서가 어긋날 수 있다.
+    pool.sort((a, b) => b.score - a.score || b.soundScore - a.soundScore);
     const premiumNames = pool.slice(0, TARGET_NAMES - 1);
     const totalNames = premiumNames.length + (freeRichName ? 1 : 0);
 
