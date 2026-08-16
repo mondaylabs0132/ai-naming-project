@@ -110,6 +110,11 @@ export async function refundOrder(
   // .select()로 실제 갱신된 행을 받는다. 이 UPDATE는 COMPLETED일 때만 걸리므로,
   // 행이 돌아왔다면 이번 호출이 환불을 확정한 유일한 주체라는 뜻이다.
   // 이걸 아래 이력 삽입의 조건으로 삼아 중복 기록을 막는다.
+  //
+  // coupon_id를 여기서 해제해야 한다. UNIQUE(coupon_id) 인덱스에 주문 상태
+  // 조건이 없어서, REFUNDED 주문이 쿠폰을 계속 물고 있으면 위에서 되살린
+  // 쿠폰을 다른 결제에 쓰려는 순간 23505(coupon_in_use)로 막힌다.
+  // 환불 이력의 쿠폰 정보는 아래 refunds 테이블에 남는다.
   const { data: refundedOrder, error: orderError } = await admin
     .from("premium_orders")
     .update({
@@ -117,6 +122,7 @@ export async function refundOrder(
       refunded_at: now,
       refund_amount: order.amount,
       refund_reason: reason.slice(0, 500),
+      coupon_id: null,
     })
     .eq("id", order.id)
     .eq("status", "COMPLETED")
