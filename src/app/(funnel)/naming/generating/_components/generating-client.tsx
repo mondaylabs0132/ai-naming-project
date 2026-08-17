@@ -40,8 +40,10 @@ export default function GeneratingClient({ requestId }: { requestId: string }) {
       const result = (await response.json()) as { error?: unknown };
 
       if (!response.ok) {
+        // 무료 횟수 소진. 설문은 이미 저장돼 있으므로 requestId를 넘겨
+        // 그대로 유료 결제로 이어갈 수 있게 한다.
         if (response.status === 429) {
-          router.replace("/free-limit");
+          router.replace(`/free-limit?requestId=${requestId}`);
           return;
         }
 

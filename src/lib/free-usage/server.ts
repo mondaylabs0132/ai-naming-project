@@ -36,8 +36,50 @@ async function getVisitorIdAndIpHash(): Promise<FreeUsageIdentity> {
   };
 }
 
+/**
+ * IP 제한만 우회할지 여부.
+ *
+ * 결제 이력이 있는 사용자는 공유 IP(통신사 NAT·회사망) 때문에 남의 사용 이력에
+ * 막히면 안 된다. 다만 방문자(visitor_id) 1회 제한은 그대로 적용되므로,
+ * 이 우회로 무료 AI가 무제한 열리지는 않는다.
+ */
+type FreeUsageOptions = { ipLimitBypass?: boolean };
+
+/**
+ * p_ip_limit_bypass 인자를 받는 RPC는 마이그레이션
+ * `20260816120000_relax_free_usage_ip_limit.sql` 이후에만 존재한다.
+ * 배포 순서가 어긋나 함수가 아직 없더라도 무료 생성 자체가 죽으면 안 되므로,
+ * 인자 없는 기존 시그니처로 한 번 더 시도한다(= 우회 없이 평소대로 판정).
+ */
+async function callFreeUsageRpc(
+  supabase: SupabaseClient,
+  fn: "check_free_usage" | "use_free_usage",
+  args: Record<string, unknown>,
+  ipLimitBypass: boolean,
+): Promise<FreeUsageResult> {
+  if (ipLimitBypass) {
+    const { data, error } = await supabase.rpc(fn, {
+      ...args,
+      p_ip_limit_bypass: true,
+    });
+
+    if (!error) return normalizeFreeUsageRpcResult(data);
+
+    console.error(
+      `[free] ${fn}(p_ip_limit_bypass) 호출 실패 — 우회 없이 재시도합니다:`,
+      error,
+    );
+  }
+
+  const { data, error } = await supabase.rpc(fn, args);
+
+  if (error) throw error;
+  return normalizeFreeUsageRpcResult(data);
+}
+
 export async function checkFreeUsage(
   supabase: SupabaseClient,
+  options: FreeUsageOptions = {},
 ): Promise<FreeUsageResult> {
   // 개발 환경에서는 무료 사용 제한을 확인하지 않음
   if (process.env.NODE_ENV === "development") {
@@ -45,18 +87,18 @@ export async function checkFreeUsage(
   }
 
   const { visitorId, ipHash } = await getVisitorIdAndIpHash();
-  const { data, error } = await supabase.rpc("check_free_usage", {
-    p_visitor_id: visitorId,
-    p_ip_hash: ipHash,
-  });
 
-  if (error) throw error;
-  return normalizeFreeUsageRpcResult(data);
+  return callFreeUsageRpc(
+    supabase,
+    "check_free_usage",
+    { p_visitor_id: visitorId, p_ip_hash: ipHash },
+    options.ipLimitBypass === true,
+  );
 }
 
 export async function consumeFreeUsage(
   supabase: SupabaseClient,
-  params: { requestId: string },
+  params: { requestId: string } & FreeUsageOptions,
 ): Promise<FreeUsageResult> {
   // 개발 환경에서는 무료 사용 횟수를 차감하지 않음
   if (process.env.NODE_ENV === "development") {
@@ -64,14 +106,17 @@ export async function consumeFreeUsage(
   }
 
   const { visitorId, ipHash } = await getVisitorIdAndIpHash();
-  const { data, error } = await supabase.rpc("use_free_usage", {
-    p_request_id: params.requestId,
-    p_visitor_id: visitorId,
-    p_ip_hash: ipHash,
-  });
 
-  if (error) throw error;
-  return normalizeFreeUsageRpcResult(data);
+  return callFreeUsageRpc(
+    supabase,
+    "use_free_usage",
+    {
+      p_request_id: params.requestId,
+      p_visitor_id: visitorId,
+      p_ip_hash: ipHash,
+    },
+    params.ipLimitBypass === true,
+  );
 }
 
 export async function setFreeUsageUpgradeEffect(

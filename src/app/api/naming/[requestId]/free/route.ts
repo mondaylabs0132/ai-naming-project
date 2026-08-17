@@ -14,10 +14,12 @@ export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   consumeFreeUsage,
   rollbackFreeUsage,
 } from "@/lib/free-usage/server";
+import { hasCompletedOrder } from "@/lib/payments/orders";
 import {
   ohangFromSurvey,
   fetchSurveyAndSurname,
@@ -86,9 +88,20 @@ export async function POST(
     const { survey, surname } = loaded;
     const { lacking, count: ohangCount } = ohangFromSurvey(survey);
 
+    // 결제 이력이 있는 사용자는 공유 IP(통신사 NAT·회사망) 때문에 남의 사용
+    // 이력에 막히지 않게 IP 제한만 면제한다. 방문자 1회 제한은 그대로다.
+    const authClient = await createServerClient();
+    const {
+      data: { user },
+    } = await authClient.auth.getUser();
+    const ipLimitBypass = user
+      ? await hasCompletedOrder(supabase, user.id)
+      : false;
+
     // 유효한 설문 요청임을 확인한 뒤, GPT 호출 직전에 무료 사용 1회 소비
     const usage = await consumeFreeUsage(supabase, {
       requestId,
+      ipLimitBypass,
     });
 
     if (!usage.ok) {
