@@ -4,23 +4,13 @@ import MoodSection from "@/components/home/mood-section";
 import FilterSection from "@/components/home/filter-section";
 import Footer from "@/components/layout/footer";
 
-import { checkFreeUsage } from "@/lib/free-usage/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-
-export default async function Home() {
-  // 무료 제한 조회 실패 시에는 사용자 차단보다 통과를 우선함
-  let canUseFreeTrial = true;
-
-  try {
-    const usage = await checkFreeUsage(createAdminClient());
-    canUseFreeTrial = usage.ok;
-  } catch (error) {
-    console.error("[home] 무료 사용 제한 확인 실패:", error);
-  }
-
+// 무료 제한은 랜딩에서 판정하지 않는다. 설문을 채우기도 전에 "횟수를 다 썼다"고
+// 막으면 유료 전환 경로까지 함께 닫힌다. 판정은 실제 비용이 드는 지점
+// (무료 AI 생성 직전, /naming/generating)에서만 하고, 거기서 결제로 안내한다.
+export default function Home() {
   return (
     <main>
-      <HeroSection canUseFreeTrial={canUseFreeTrial} />
+      <HeroSection />
       <NameCarousel />
       <MoodSection />
       <FilterSection />

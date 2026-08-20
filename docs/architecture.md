@@ -11,10 +11,13 @@
 
 ```
 랜딩 → 5단계 입력(단일 페이지) → 무료 AI 로딩 → 무료 결과
-                                              ↓ (유료 전환 클릭)
-                          이메일 입력 → OTP 6자리 입력 → 세션 발급
-                                              ↓
-                            결제(Toss) → 유료 AI 로딩 → 유료 결과
+                          │                   ↓ (유료 전환 클릭)
+                          │  이메일 입력 → OTP 6자리 입력 → 세션 발급
+                          │                   ↓
+                          │     결제(Toss) → 유료 AI 로딩 → 유료 결과
+                          │                   ↑
+                          └→ (무료 횟수 소진) /free-limit ┘
+                             설문은 이미 저장돼 있어 그대로 결제로 이어짐
 
 (재방문 유저)  /login → OTP → /mypage
 ```
@@ -37,7 +40,7 @@ src/app/
 │   │   └── _lib/                    # schema.ts, survey-mapper.ts
 │   ├── naming/generating/           # /naming/generating?requestId=… (무료 AI 로딩)
 │   ├── results/[id]/                # /results/abc  무료 결과
-│   └── free-limit/                  # 무료 사용 횟수 초과 안내
+│   └── free-limit/                  # 무료 횟수 소진 안내 + 유료 전환 지점(?requestId=…)
 │
 ├── (upgrade)/                       # 무료→유료 전환 (비로그인 진입 가능)
 │   └── upgrade/[resultId]/
@@ -140,6 +143,13 @@ Supabase의 `pg_cron`이 `reap_stuck_generations()`를 주기 실행해 오래 �
 
 - 무료 생성 실행 라우트는 `consumeFreeUsage` → 실패 시 `rollbackFreeUsage` 패턴 필수.
   실패 경로에서 롤백을 빠뜨리면 사용자가 무료 1회를 그냥 잃습니다.
+- 무료 사용 제한은 **퍼널 입구가 아니라 무료 AI 생성 지점에서만** 판정합니다.
+  랜딩·설문에서 막으면 AI 비용은 그대로인데(호출은 생성 라우트에서만 일어남)
+  결제 경로만 사라집니다 — 결제는 `requestId`(설문)가 있어야 시작되기 때문입니다.
+  소진된 사용자는 설문을 마친 뒤 `/free-limit?requestId=…`에서 `/upgrade/[requestId]`로 넘어갑니다.
+- 그래서 유료 생성은 **무료 결과가 없는 요청**도 처리해야 합니다. 이 경우 이름 20개를
+  `sort_order` 0부터 채우며, `CHECK (is_free_visible = (sort_order = 0))` 때문에
+  0번 행만 `is_free_visible = true`여야 합니다.
 - `verify`는 `resultId`를 함께 받아 익명 생성 결과를 유저 계정에 **귀속**시킵니다.
 - `redirect_to`는 `/`로 시작하고 `//`로 시작하지 않는 상대경로만 허용 (open redirect 방지).
 - `upgrade/[id]/result`는 인증 + 결제완료 둘 다 검사. `mypage/results/[id]`는 본인 소유 검사 필수.

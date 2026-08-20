@@ -19,6 +19,34 @@ export const isPaymentWindowOpen = (freeExpiresAt: string | null) =>
   !!freeExpiresAt &&
   Date.now() < new Date(freeExpiresAt).getTime() + PAYMENT_GRACE_MS;
 
+/**
+ * 이 사용자가 결제를 완료한 적이 있는지.
+ *
+ * 무료 사용 제한에서 IP 제한만 면제해 주기 위해 쓴다. 공유 IP(통신사 NAT·회사망)
+ * 뒤에 있는 기존 고객이 남의 사용 이력 때문에 막히는 걸 막는 용도다.
+ */
+export async function hasCompletedOrder(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("premium_orders")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("status", "COMPLETED")
+    .limit(1)
+    .maybeSingle();
+
+  // 조회 실패로 결제 이력을 확인 못 했다고 무료 생성을 막을 이유는 없다.
+  // 우회를 포기(= 평소 제한 적용)하는 쪽이 안전하다.
+  if (error) {
+    console.error("[payments] 결제 이력 조회 실패:", error);
+    return false;
+  }
+
+  return Boolean(data);
+}
+
 export type PremiumOrder = {
   id: string;
   request_id: string;

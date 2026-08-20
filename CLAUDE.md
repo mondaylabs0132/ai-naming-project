@@ -36,6 +36,9 @@ Next.js 16 (App Router, `src/proxy.ts` — middleware.ts 아님) · React 19 · 
 - 인증은 **이메일 OTP** (`/api/auth/otp` → `/api/auth/verify`). architecture.md의 "매직링크"는 구식 표현.
 - `src/proxy.ts`가 모든 요청에 `visitor_id` 쿠키(httpOnly, UUID)를 부여하고 Supabase 세션을 갱신. 무료 사용 제한은 이 쿠키 + IP 해시(`FREE_TRIAL_IP_PEPPER`) 기반 — `src/lib/free-usage/`.
 - 무료 생성 라우트는 `consumeFreeUsage` → 실패 시 `rollbackFreeUsage` 패턴을 지킨다. 실패 경로에서 롤백을 빠뜨리면 사용자가 무료 1회를 그냥 잃는다.
+- **제한은 무료 AI 생성 지점에만 건다.** 랜딩·설문 페이지에서 막으면 비용은 안 줄고(AI는 생성 라우트에서만 호출) 결제 경로만 사라진다 — 결제는 `requestId`(설문)가 있어야 가능하기 때문. 소진된 사용자는 설문을 끝까지 작성한 뒤 `/free-limit?requestId=…` → `/upgrade/[requestId]`로 유료 전환한다.
+- 한도: 방문자 1회 / 30일, IP 5회 / 24시간. 결제 이력이 있는 사용자는 IP 제한만 면제(`ipLimitBypass`) — 공유 IP(통신사 NAT) 오탐 방지용이고 방문자 제한은 그대로다.
+- 무료 결과 없이 곧바로 결제한 요청은 유료 생성이 이름 20개를 `sort_order` 0부터 채운다. `name_candidates`에 `CHECK (is_free_visible = (sort_order = 0))` 제약이 있어 0번 행만 `is_free_visible = true`여야 한다.
 
 ### 결제 (Toss Payments)
 

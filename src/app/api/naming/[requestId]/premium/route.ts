@@ -205,12 +205,22 @@ export async function POST(
       : null;
 
     // ── 유료 이름 생성 (무료 1개를 뺀 나머지) ──────────────────
+    //
+    // 무료 결과 없이 곧바로 결제한 요청(무료 횟수 소진 → 바로 유료 전환)은
+    // 채워야 할 이름이 하나 더 많다. TARGET_NAMES - 1로 고정하면 19개만
+    // 만들어져 "요청당 20개" 규칙이 깨진다.
+    const premiumTarget = freeRichName ? TARGET_NAMES - 1 : TARGET_NAMES;
+    // 무료 이름이 없으면 유료 이름이 sort_order 0부터 채워진다.
+    // name_candidates에는 CHECK (is_free_visible = (sort_order = 0)) 제약이
+    // 있으므로, 0번 행만 is_free_visible = true여야 INSERT가 통과한다.
+    const sortOrderOffset = freeRichName ? 1 : 0;
+
     const { names: pool, cost: nameCost } = await collectNames({
       supabase,
       surname,
       survey,
       lacking,
-      target: TARGET_NAMES - 1,
+      target: premiumTarget,
       maxAttempts: 4,
       model: MODEL_NAME_GEN,
       usedNames,
@@ -219,7 +229,7 @@ export async function POST(
     // 정렬 기준은 결과 화면의 순위 계산(score desc, sound_score desc)과 맞춘다.
     // score만으로 자르면 동점 경계에서 화면 순위와 저장 순서가 어긋날 수 있다.
     pool.sort((a, b) => b.score - a.score || b.soundScore - a.soundScore);
-    const premiumNames = pool.slice(0, TARGET_NAMES - 1);
+    const premiumNames = pool.slice(0, premiumTarget);
     const totalNames = premiumNames.length + (freeRichName ? 1 : 0);
 
     // 점수 미달·독음 불일치 후보를 걸러내면 목표치를 못 채울 수 있다.
@@ -270,8 +280,8 @@ export async function POST(
       premiumNames.map((n, i) =>
         toDbRow({
           requestId,
-          sortOrder: i + 1,
-          isFreeName: false,
+          sortOrder: i + sortOrderOffset,
+          isFreeName: !freeRichName && i === 0,
           surname,
           name: n,
           detail: detailMap[n.hangul],
