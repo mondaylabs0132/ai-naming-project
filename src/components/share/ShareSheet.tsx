@@ -30,6 +30,11 @@ export default function ShareSheet({
   isEditingScope?: boolean;
 }) {
   const router = useRouter();
+  // 시트를 **열 때** 한 번 정해지는 값이다. 링크를 만들면 router.refresh()로
+  // 부모의 shareTally가 채워지는데, prop을 그대로 읽으면 열려 있는 시트가
+  // 그 순간 "범위 변경" 모드로 뒤집힌다 — 방금 처음 공유한 사람이 "이미 링크를
+  // 받은 사람이…" 경고를 보게 된다(데스크톱은 공유 후에도 시트가 남는다).
+  const [isScopeEdit] = useState(isEditingScope);
   const [mode, setMode] = useState<Mode>(
     activeCandidateIds && activeCandidateIds.length > 0 ? "pick" : "all",
   );
@@ -103,7 +108,7 @@ export default function ShareSheet({
 
       // 범위만 고치러 들어온 경우엔 공유 시트를 다시 띄우지 않는다.
       // 링크는 그대로라 이미 받은 사람에게 새로 보낼 것이 없다.
-      if (isEditingScope) {
+      if (isScopeEdit) {
         onClose();
         return;
       }
@@ -167,10 +172,10 @@ export default function ShareSheet({
               id="share-sheet-title"
               className="font-bold text-ink tracking-[-0.3px] text-[18px]"
             >
-              {isEditingScope ? "보여줄 이름 바꾸기" : "가족·친구에게 물어보기"}
+              {isScopeEdit ? "보여줄 이름 바꾸기" : "가족·친구에게 물어보기"}
             </h2>
             <p className="mt-1 text-ink-muted text-caption leading-[1.5]">
-              {isEditingScope
+              {isScopeEdit
                 ? "링크는 그대로예요. 보여줄 이름만 바뀌어요"
                 : "링크를 받은 사람이 마음에 드는 이름을 골라줘요"}
             </p>
@@ -256,7 +261,7 @@ export default function ShareSheet({
         </div>
 
         <div className="mt-[18px] flex items-start gap-1.5">
-          {isEditingScope ? (
+          {isScopeEdit ? (
             <>
               <TriangleAlert size={14} className="shrink-0 mt-px text-primary" />
               <span className="text-ink-muted text-[12px] leading-[1.5]">
@@ -300,12 +305,12 @@ export default function ShareSheet({
               : "bg-primary-pale text-ink-light",
           ].join(" ")}
         >
-          {copiedUrl || isEditingScope ? (
+          {copiedUrl || isScopeEdit ? (
             <Check size={18} strokeWidth={3} />
           ) : (
             <Share2 size={18} />
           )}
-          {isEditingScope
+          {isScopeEdit
             ? isSubmitting
               ? "바꾸는 중…"
               : "변경 사항 저장하기"
