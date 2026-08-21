@@ -45,6 +45,9 @@ create table if not exists public.result_shares (
   is_active  boolean     not null default true,
   -- 아기 이름은 개인정보에 가까워 무기한 공개는 위험하다. 기본 30일.
   expires_at timestamptz not null default now() + interval '30 days',
+  -- 조회수. 지금은 화면에 쓰지 않는다 — "몇 번 열렸는지"는 새로고침·본인
+  -- 확인까지 세어서 "몇 명이 봤는지"로 읽히고, 투표 수와 나란히 놓이면
+  -- 오히려 헷갈린다. 고유 방문자 집계로 바꿀 때 다시 쓸 수 있게 남겨둔다.
   view_count integer     not null default 0,
 
   created_at timestamptz not null default now(),

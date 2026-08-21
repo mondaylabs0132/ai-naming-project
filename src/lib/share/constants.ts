@@ -35,11 +35,29 @@ export type ShareParticipant = {
 };
 
 export type SharePage = {
-  shareId: string;
   candidates: ShareCandidate[];
   /** 지금까지 투표한 사람 수 */
   voterCount: number;
   /** 이 방문자가 이미 투표했는지 — 투표 전에는 집계를 보여주지 않는다. */
   hasVoted: boolean;
   participants: ShareParticipant[];
+};
+
+/** 소유자가 마이페이지에서 보는 집계 한 건. */
+export type ShareTally = {
+  token: string;
+  url: string;
+  expiresAt: string;
+  /** 지금 공유 중인 범위. null이면 이름 전체. 범위 변경 시트의 초기값이다. */
+  candidateIds: string[] | null;
+  voterCount: number;
+  /** 득표 내림차순, 동점이면 가나다. 표가 0인 이름은 들어오지 않는다. */
+  ranking: { candidateId: string; name: string; voteCount: number }[];
+  /** 한마디를 남긴 참가자만. 소유자는 여기서 한마디를 지울 수 있다. */
+  comments: {
+    participantId: string;
+    label: string | null;
+    comment: string;
+    votedNames: string[];
+  }[];
 };

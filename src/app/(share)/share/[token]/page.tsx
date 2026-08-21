@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { isUuid, VISITOR_ID_COOKIE } from "@/lib/free-usage/visitor";
-import { bumpShareViewCount, getSharePage } from "@/lib/share/public";
+import { getSharePage } from "@/lib/share/public";
 import ShareResultView from "./_components/share-result-view";
 import ShareVoteView from "./_components/share-vote-view";
 
@@ -31,8 +31,6 @@ export default async function SharePage({
 
   // 없는 토큰·닫힌 링크·만료된 링크·사라진 결과를 전부 404로 합친다.
   if (!page) notFound();
-
-  await bumpShareViewCount(page.shareId);
 
   if (page.hasVoted) {
     return (

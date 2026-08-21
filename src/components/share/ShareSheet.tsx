@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Check, Clock, Lock, Share2, X } from "lucide-react";
+import { Check, Clock, Lock, Share2, TriangleAlert, X } from "lucide-react";
 
 import { shareOrCopy } from "@/lib/share/share-link";
 
@@ -17,13 +18,24 @@ export default function ShareSheet({
   requestId,
   names,
   onClose,
+  // 이미 공유 중이면 지금 범위를 초기값으로 받는다(null = 전체).
+  // 이때는 링크를 새로 만드는 게 아니라 기존 링크의 범위만 고치는 화면이 된다.
+  activeCandidateIds,
+  isEditingScope = false,
 }: {
   requestId: string;
   names: ShareName[];
   onClose: () => void;
+  activeCandidateIds?: string[] | null;
+  isEditingScope?: boolean;
 }) {
-  const [mode, setMode] = useState<Mode>("all");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const router = useRouter();
+  const [mode, setMode] = useState<Mode>(
+    activeCandidateIds && activeCandidateIds.length > 0 ? "pick" : "all",
+  );
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(activeCandidateIds ?? []),
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // 링크를 만든 뒤 복사까지 끝났을 때만 채워진다. 네이티브 시트로 넘어간
@@ -84,6 +96,18 @@ export default function ShareSheet({
       }
 
       const share = (await response.json()) as { url: string };
+
+      // 링크가 생겼거나 범위가 바뀌었으니 서버 컴포넌트를 다시 그린다.
+      // 공유·복사 결과와 무관하게 링크는 이미 살아 있다.
+      router.refresh();
+
+      // 범위만 고치러 들어온 경우엔 공유 시트를 다시 띄우지 않는다.
+      // 링크는 그대로라 이미 받은 사람에게 새로 보낼 것이 없다.
+      if (isEditingScope) {
+        onClose();
+        return;
+      }
+
       const outcome = await shareOrCopy({
         title: "첫지음",
         text: "아기 이름 후보를 골랐어요. 어떤 게 제일 좋으세요?",
@@ -143,10 +167,12 @@ export default function ShareSheet({
               id="share-sheet-title"
               className="font-bold text-ink tracking-[-0.3px] text-[18px]"
             >
-              가족·친구에게 물어보기
+              {isEditingScope ? "보여줄 이름 바꾸기" : "가족·친구에게 물어보기"}
             </h2>
             <p className="mt-1 text-ink-muted text-caption leading-[1.5]">
-              링크를 받은 사람이 마음에 드는 이름을 골라줘요
+              {isEditingScope
+                ? "링크는 그대로예요. 보여줄 이름만 바뀌어요"
+                : "링크를 받은 사람이 마음에 드는 이름을 골라줘요"}
             </p>
           </div>
           <button
@@ -229,11 +255,23 @@ export default function ShareSheet({
           </p>
         </div>
 
-        <div className="mt-[18px] flex items-center gap-1.5">
-          <Clock size={14} className="shrink-0 text-ink-muted" />
-          <span className="text-ink-muted text-[12px]">
-            링크는 30일 뒤 자동으로 닫혀요. 언제든 직접 닫을 수도 있어요.
-          </span>
+        <div className="mt-[18px] flex items-start gap-1.5">
+          {isEditingScope ? (
+            <>
+              <TriangleAlert size={14} className="shrink-0 mt-px text-primary" />
+              <span className="text-ink-muted text-[12px] leading-[1.5]">
+                이미 링크를 받은 사람이 보는 목록도 함께 바뀌어요. 지금까지 받은
+                투표는 그대로 남습니다.
+              </span>
+            </>
+          ) : (
+            <>
+              <Clock size={14} className="shrink-0 mt-px text-ink-muted" />
+              <span className="text-ink-muted text-[12px] leading-[1.5]">
+                링크는 30일 뒤 자동으로 닫혀요. 언제든 직접 닫을 수도 있어요.
+              </span>
+            </>
+          )}
         </div>
 
         {errorMessage && (
@@ -262,16 +300,20 @@ export default function ShareSheet({
               : "bg-primary-pale text-ink-light",
           ].join(" ")}
         >
-          {copiedUrl ? (
+          {copiedUrl || isEditingScope ? (
             <Check size={18} strokeWidth={3} />
           ) : (
             <Share2 size={18} />
           )}
-          {isSubmitting
-            ? "링크 만드는 중…"
-            : copiedUrl
-              ? "링크를 복사했어요"
-              : "링크 만들고 공유하기"}
+          {isEditingScope
+            ? isSubmitting
+              ? "바꾸는 중…"
+              : "변경 사항 저장하기"
+            : isSubmitting
+              ? "링크 만드는 중…"
+              : copiedUrl
+                ? "링크를 복사했어요"
+                : "링크 만들고 공유하기"}
         </button>
       </div>
     </div>

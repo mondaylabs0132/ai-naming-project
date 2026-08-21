@@ -139,7 +139,6 @@ export async function getSharePage(
   const nameById = new Map(candidates.map((c) => [c.id, c.fullName]));
 
   return {
-    shareId: share.id,
     candidates,
     voterCount: participants.length,
     hasVoted: !!voterKey && participants.some((p) => p.voter_key === voterKey),
@@ -151,21 +150,4 @@ export async function getSharePage(
         .filter((name): name is string => !!name),
     })),
   };
-}
-
-/** 조회수. 실패해도 페이지는 떠야 하므로 결과를 보지 않는다. */
-export async function bumpShareViewCount(shareId: string) {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("result_shares")
-    .select("view_count")
-    .eq("id", shareId)
-    .maybeSingle();
-
-  if (!data) return;
-
-  await supabase
-    .from("result_shares")
-    .update({ view_count: (data.view_count as number) + 1 })
-    .eq("id", shareId);
 }

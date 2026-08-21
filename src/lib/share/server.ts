@@ -188,3 +188,36 @@ export async function revokeShare(
 
   return !!data;
 }
+
+/**
+ * 한마디 지우기.
+ *
+ * 참가자 행을 지우지 않고 comment만 비운다. 행을 지우면 그 사람이 던진 표까지
+ * cascade로 사라져 집계가 흔들리고, 쿠키가 남아 있어 재투표도 못 한다.
+ * authenticated에는 comment 컬럼 GRANT만 있어 다른 컬럼은 건드릴 수 없다.
+ *
+ * @param supabase 세션 클라이언트. 소유권은 RLS(private.owns_result_share)가 본다.
+ */
+export async function clearShareComment(
+  supabase: SupabaseClient,
+  token: string,
+  participantId: string,
+): Promise<boolean> {
+  const { data: share } = await supabase
+    .from("result_shares")
+    .select("id")
+    .eq("token", token)
+    .maybeSingle<{ id: string }>();
+
+  if (!share) return false;
+
+  const { data } = await supabase
+    .from("share_participants")
+    .update({ comment: null })
+    .eq("id", participantId)
+    .eq("share_id", share.id)
+    .select("id")
+    .maybeSingle();
+
+  return !!data;
+}
