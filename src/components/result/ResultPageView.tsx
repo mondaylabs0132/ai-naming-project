@@ -9,11 +9,13 @@ import {
   Mail,
   RotateCw,
   TriangleAlert,
+  Users,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { scoreToLabel, scoreToStars } from "@/lib/result/score";
 import StarRating from "@/components/result/StarRating";
+import ShareSheet from "@/components/share/ShareSheet";
 import TagPill from "@/components/result/TagPill";
 import Link from "next/link";
 
@@ -59,12 +61,17 @@ export default function ResultPageView({
   // 이름 상세로 가는 경로. 결제 직후 흐름과 마이페이지 재열람 흐름의 URL이 다르므로
   // 목록을 공유하되 링크 베이스만 주입받는다.
   detailBasePath = `/upgrade/${requestId}/result`,
+  // 공유는 재열람 화면(마이페이지)에서만 연다. 결제 직후 화면은 결과 확인에
+  // 집중시키는 자리라 버튼을 늘리지 않는다.
+  shareEnabled = false,
 }: {
   requestId: string;
   userId: string;
   detailBasePath?: string;
+  shareEnabled?: boolean;
 }) {
   const [activeSort, setActiveSort] = useState<"추천도" | "가나다">("추천도");
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [names, setNames] = useState<ResultName[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
@@ -340,6 +347,18 @@ export default function ResultPageView({
         </button> */}
       </div>
 
+      {/* ── 공유하기 ── */}
+      {shareEnabled && !isLoading && names.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setIsShareOpen(true)}
+          className="mb-3 w-full flex items-center justify-center gap-1.5 border border-primary bg-surface text-primary font-semibold text-caption min-[376px]:text-btn rounded-pill py-3"
+        >
+          <Users className="size-4 min-[376px]:size-[18px]" />
+          가족·친구에게 물어보기
+        </button>
+      )}
+
       {/* ── 좋아요 조회 실패 배너 ── */}
       {!isLoading && hasFavoritesError && (
         <div
@@ -444,6 +463,18 @@ export default function ResultPageView({
             </div>
           ))}
       </div>
+
+      {isShareOpen && (
+        <ShareSheet
+          requestId={requestId}
+          names={sortedNames.map((item) => ({
+            id: item.id,
+            name: item.name,
+            hanja: item.hanja,
+          }))}
+          onClose={() => setIsShareOpen(false)}
+        />
+      )}
     </div>
   );
 }

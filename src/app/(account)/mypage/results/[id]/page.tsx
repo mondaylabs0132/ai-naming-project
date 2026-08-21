@@ -37,6 +37,7 @@ export default async function MyPageResultDetail({
         requestId={id}
         userId={user.id}
         detailBasePath={`/mypage/results/${id}/detail`}
+        shareEnabled
       />
       <Footer />
     </>
