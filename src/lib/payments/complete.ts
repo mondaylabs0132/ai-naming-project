@@ -158,7 +158,7 @@ export async function completeOrder(
     if (error) throw error;
   }
 
-  // 무료 상태였던 최초 완료 건만 PREMIUM_GENERATING으로 전이 (유료 생성 시작).
+  // 무료 상태 또는 이전 실패 건만 PREMIUM_GENERATING으로 전이 (유료 생성 시작).
   {
     const { error } = await admin
       .from("naming_requests")
@@ -174,7 +174,10 @@ export async function completeOrder(
         generation_failure_reason: null,
       })
       .eq("id", order.request_id)
-      .in("status", ["FREE_ACTIVE", "FREE_EXPIRED"]); // 상태가 무료인 경우에만
+      // 무료 상태 + 이전에 실패해 환불받은 뒤 다시 결제한 건(FAILED)까지.
+      // FAILED를 빼면 재구매 건이 그 상태에 머무는데, 리퍼는 PREMIUM_GENERATING만
+      // 훑으므로 아래 생성 트리거가 닿지 못한 순간 재시도도 자동 환불도 못 받는다.
+      .in("status", ["FREE_ACTIVE", "FREE_EXPIRED", "FAILED"]);
     if (error) throw error;
   }
 

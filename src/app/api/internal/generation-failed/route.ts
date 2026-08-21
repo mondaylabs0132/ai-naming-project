@@ -3,15 +3,19 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { findRefundableOrder, refundOrder } from "@/lib/payments/refund";
+import { failAndRefund } from "@/lib/payments/refund";
 
 const INTERNAL_JOB_SECRET_HEADER = "x-internal-job-secret";
 const internalJobSecret =
   process.env.INTERNAL_JOB_SECRET ?? process.env.WEBHOOK_SECRET;
 
 /**
- * 리퍼(reap_stuck_generations)가 재시도를 소진했을 때 부르는 종착점.
- * 생성을 최종 실패로 확정하고 결제를 되돌린다.
+ * 리퍼(reap_stuck_generations)가 부르는 종착점. 두 경우에 온다.
+ *   ① 생성 라우트가 판정조차 못 내리고 죽어(타임아웃·배포 중 종료) 무응답인 건
+ *   ② 이미 FAILED지만 자동 환불이 토스 오류로 끊긴 건 (환불 재시도)
+ *
+ * 실패를 스스로 감지한 건은 생성 라우트가 직접 failAndRefund를 부르므로
+ * 여기까지 오지 않는다. 이 경로는 "앱이 말이 없을 때"를 위한 안전망이다.
  *
  * 토스 취소는 외부 HTTP 호출이라 DB 함수가 감당할 일이 아니다.
  * pg_cron이 여기까지 끌고 오고, 실제 환불은 앱이 한다.
@@ -44,37 +48,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  // 그사이 생성이 성공했거나 이미 처리된 건. 리퍼가 늦게 도착했을 뿐이다.
-  if (request.status !== "PREMIUM_GENERATING") {
-    return NextResponse.json({ ok: true, skipped: request.status });
-  }
+  // 이미 FAILED인 건은 환불만 다시 시도하는 경우다. 그때 이미 기록된 사유가
+  // 진짜 원인이므로 덮어쓰지 않는다.
+  const reason =
+    request.status === "FAILED"
+      ? (request.generation_failure_reason as string | null) ??
+        "AI 생성 실패 (환불 재시도)"
+      : `AI 생성 실패 (${request.generation_attempts}회 시도, 응답 없음): ${
+          request.generation_failure_reason ?? "생성 라우트 무응답"
+        }`;
 
-  const reason = `AI 생성 실패 (${request.generation_attempts}회 시도): ${
-    request.generation_failure_reason ?? "응답 없음"
-  }`;
-
-  // 먼저 실패로 확정한다. 사용자를 무한 로딩에 더 붙잡아 두지 않기 위해서다.
-  // 이 전이가 결과 안내 메일 트리거도 태우므로, 결제 후 이탈한 사용자에게도 닿는다.
-  await admin
-    .from("naming_requests")
-    .update({ status: "FAILED", generation_failure_reason: reason })
-    .eq("id", requestId)
-    .eq("status", "PREMIUM_GENERATING");
-
-  const order = await findRefundableOrder(admin, requestId);
-  if (!order || order.status !== "COMPLETED") {
-    return NextResponse.json({ ok: true, refunded: false });
-  }
-
-  const result = await refundOrder(admin, order, reason);
+  const result = await failAndRefund(admin, requestId, reason);
 
   if (!result.ok) {
-    // 상태는 이미 FAILED라 리퍼가 다시 부르지 않는다. 즉 이 환불은 여기서 끊긴다.
-    // 사용자에겐 실패 화면의 '환불 요청' 버튼이 남아 있지만, 그걸 누르지 않으면
-    // 돈이 그대로 남으므로 반드시 사람이 봐야 한다.
-    console.error(
-      `[generation-failed] 자동 환불 실패 — 수동 처리 필요 requestId=${requestId} orderId=${order.id} code=${result.code}: ${result.message}`,
-    );
     return NextResponse.json(
       { ok: false, refunded: false, code: result.code },
       { status: 500 },
@@ -83,8 +69,9 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    refunded: true,
-    amount: result.refunded,
+    refunded: result.refunded,
+    amount: result.amount,
     alreadyRefunded: result.alreadyRefunded,
+    skipped: result.skipped,
   });
 }

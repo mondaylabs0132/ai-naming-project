@@ -204,6 +204,87 @@ export async function refundOrder(
   return { ok: true, refunded: order.amount, alreadyRefunded: false };
 }
 
+export type FailAndRefundResult =
+  | {
+      ok: true;
+      /** 실제로 이번 호출이 환불까지 끝냈는지. 환불할 결제가 없으면 false. */
+      refunded: boolean;
+      amount?: number;
+      alreadyRefunded?: boolean;
+      /** 실패로 확정할 상태가 아니라 건너뛴 경우의 현재 상태. */
+      skipped?: string;
+    }
+  | { ok: false; code: string; message: string };
+
+/**
+ * 유료 생성을 최종 실패로 확정하고 결제를 되돌린다.
+ *
+ * 호출자는 둘이며 둘 다 "더 해볼 재시도가 없다"는 판단이 선 뒤에 부른다.
+ *   - 생성 라우트: 내부 재시도(AI 3회 · 이름 수집 4라운드 · 해설 개별 재시도)를
+ *     모두 쓰고도 실패했을 때. 판정을 내렸다는 것 자체가 프로세스가 살아 있었다는
+ *     뜻이므로 여기서 확정한다. 예전처럼 리퍼에 넘기면 같은 실패를 5분 간격으로
+ *     세 번 더 반복하는 동안 사용자는 아무 안내 없이 대기한다.
+ *   - 리퍼: 라우트가 판정조차 못 내리고 죽어(타임아웃·배포 중 종료) 무응답인 건.
+ *
+ * 상태 전이와 환불이 각각 멱등해서 여러 번 불려도 안전하다. 특히 이미 FAILED인
+ * 건도 환불을 다시 시도한다 — 토스 오류로 자동 환불이 한 번 끊긴 건을 리퍼가
+ * 다시 데려올 수 있어야 하기 때문이다.
+ */
+export async function failAndRefund(
+  admin: SupabaseClient,
+  requestId: string,
+  reason: string,
+): Promise<FailAndRefundResult> {
+  const { data: request } = await admin
+    .from("naming_requests")
+    .select("status")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (!request) {
+    return { ok: false, code: "not_found", message: "요청을 찾을 수 없습니다." };
+  }
+
+  if (request.status === "PREMIUM_GENERATING") {
+    // 먼저 실패로 확정한다. 환불보다 앞서야 사용자를 무한 로딩에 더 붙잡아 두지
+    // 않는다. 이 전이가 안내 메일 트리거도 태우므로 이탈한 사용자에게도 닿는다.
+    await admin
+      .from("naming_requests")
+      .update({
+        status: "FAILED",
+        generation_failure_reason: reason.slice(0, 500),
+      })
+      .eq("id", requestId)
+      .eq("status", "PREMIUM_GENERATING");
+  } else if (request.status !== "FAILED") {
+    // 그사이 생성이 성공했거나 이미 처리된 건.
+    return { ok: true, refunded: false, skipped: request.status as string };
+  }
+
+  const order = await findRefundableOrder(admin, requestId);
+  if (!order || order.status !== "COMPLETED") {
+    return { ok: true, refunded: false };
+  }
+
+  const result = await refundOrder(admin, order, reason);
+
+  if (!result.ok) {
+    // 상태는 이미 FAILED다. 리퍼의 환불 재시도 패스가 이 건을 다시 주워
+    // 오지만, 그때까지 돈은 그대로 남으므로 반드시 사람이 볼 수 있게 남긴다.
+    console.error(
+      `[failAndRefund] 자동 환불 실패 — 수동 확인 필요 requestId=${requestId} orderId=${order.id} code=${result.code}: ${result.message}`,
+    );
+    return { ok: false, code: result.code, message: result.message };
+  }
+
+  return {
+    ok: true,
+    refunded: true,
+    amount: result.refunded,
+    alreadyRefunded: result.alreadyRefunded,
+  };
+}
+
 /** request_id로 환불 대상 주문을 찾는다. */
 export async function findRefundableOrder(
   admin: SupabaseClient,
