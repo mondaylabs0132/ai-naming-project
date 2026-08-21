@@ -151,3 +151,28 @@ export async function getSharePage(
     })),
   };
 }
+
+/**
+ * 공유 링크에 걸린 이름 개수.
+ *
+ * OG 이미지 전용이다. 미리보기에는 이름 자체를 싣지 않고 개수만 쓴다 —
+ * 메신저·SNS는 미리보기 이미지를 자기 CDN에 캐시하는데, 그 주소는 토큰과
+ * 무관하게 남는다. 링크를 닫아도 회수할 수 없는 자리에 아기 이름을 박을
+ * 이유가 없다.
+ *
+ * 유효하지 않은 토큰이면 null.
+ */
+export async function getShareNameCount(token: string): Promise<number | null> {
+  const share = await resolveShareToken(token);
+  if (!share) return null;
+
+  if (share.candidate_ids) return share.candidate_ids.length;
+
+  const supabase = createAdminClient();
+  const { count } = await supabase
+    .from("name_candidates")
+    .select("id", { count: "exact", head: true })
+    .eq("request_id", share.request_id);
+
+  return count ?? 0;
+}
