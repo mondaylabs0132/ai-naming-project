@@ -4,37 +4,12 @@ import Link from "next/link";
 import { Check, Crown, Heart, Mail, Share2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { shareOrCopy } from "@/lib/share/share-link";
+
 /** 복사 완료/실패 표시를 유지하는 시간 */
 const COPY_FEEDBACK_MS = 1000;
 
 type CopyState = "idle" | "copied" | "error";
-
-/**
- * Clipboard API는 보안 컨텍스트(https·localhost)에서만 쓸 수 있어서,
- * 못 쓰는 환경에서는 임시 textarea + execCommand로 대체한다.
- */
-async function copyText(text: string) {
-  if (navigator.clipboard) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.select();
-
-  try {
-    if (!document.execCommand("copy")) {
-      throw new Error("복사에 실패했습니다");
-    }
-  } finally {
-    document.body.removeChild(textarea);
-  }
-}
 
 // title의 줄바꿈(\n)은 3분할 카드에서 줄이 갈리는 위치를 고정하기 위한 것.
 // 렌더링 쪽에서 whitespace-pre-line으로 살린다.
@@ -82,50 +57,19 @@ export default function UpgradeCta({ resultId }: { resultId: string }) {
     }, COPY_FEEDBACK_MS);
   };
 
-  // 모바일은 네이티브 공유 시트가 카카오톡까지 가는 최단 경로라 우선 쓰고,
-  // 그 외에는 링크를 복사한다.
-  // 카카오 SDK를 붙일 때는 이 자리를 공유 모달로 바꾸고, 복사 동작은 모달 안에서 재사용한다.
+  // 공유 동작(네이티브 시트 ↔ 링크 복사)은 유료 결과 공유와 같은 규칙이라
+  // @/lib/share/share-link 한 곳에 모여 있다.
   const handleShare = async () => {
-    const url = window.location.href;
-    const shareData = {
+    const outcome = await shareOrCopy({
       title: "첫지음",
       text: "우리 아이에게 어울리는 이름을 찾았어요!",
-      url,
-    };
+      url: window.location.href,
+    });
 
-    // navigator.share 존재 여부만으로는 모바일을 가려낼 수 없다.
-    // macOS Safari도 이를 지원해서 데스크톱에 AirDrop·메일 시트가 떠버린다.
-    // 데스크톱에서는 링크 복사가 자연스러우므로 터치 기기일 때만 시트를 쓴다.
-    // (결제 화면 resolveWindowTarget과 같은 기준)
-    const isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
-    const canUseNativeShare =
-      isTouchDevice &&
-      typeof navigator.share === "function" &&
-      (typeof navigator.canShare !== "function" ||
-        navigator.canShare(shareData));
+    // 네이티브 시트로 넘어간 경우엔 시트가 결과를 알려주므로 여기선 조용히 끝낸다.
+    if (outcome === "shared") return;
 
-    if (canUseNativeShare) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (error) {
-        // 사용자가 시트를 그냥 닫은 경우(AbortError)는 의도된 취소라 여기서 끝낸다.
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-        // 그 외(카카오톡 인앱 브라우저 미지원, 권한 거부 등)는 삼키지 말고 복사로 넘어간다.
-        // 예전에는 여기서 그대로 return해 버려 아무 일도 일어나지 않았다.
-      }
-    }
-
-    // iOS Safari는 클릭 핸들러에서 다른 await을 거친 뒤 클립보드를 호출하면
-    // 사용자 제스처가 끊긴 것으로 보고 거부할 수 있다. 그때는 error 상태로 안내한다.
-    try {
-      await copyText(url);
-      showCopyFeedback("copied");
-    } catch {
-      showCopyFeedback("error");
-    }
+    showCopyFeedback(outcome === "copied" ? "copied" : "error");
   };
 
   const isCopied = copyState === "copied";

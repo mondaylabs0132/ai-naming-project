@@ -118,6 +118,9 @@ const HIDDEN_PATH_PREFIXES = [
   "/naming",
   "/results",
   "/upgrade",
+  // 공유 링크로 들어온 비로그인 방문자에게 보관함·마이페이지 탭은 쓸모가 없다.
+  // 대신 화면 하단에 투표 CTA가 고정된다.
+  "/share",
   "/login",
   "/terms",
   "/privacy",

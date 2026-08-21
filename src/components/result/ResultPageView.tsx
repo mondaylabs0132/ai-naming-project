@@ -9,11 +9,15 @@ import {
   Mail,
   RotateCw,
   TriangleAlert,
+  Users,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { scoreToLabel, scoreToStars } from "@/lib/result/score";
 import StarRating from "@/components/result/StarRating";
+import ShareSheet from "@/components/share/ShareSheet";
+import ShareTallyCard from "@/components/share/ShareTallyCard";
+import type { ShareTally } from "@/lib/share/constants";
 import TagPill from "@/components/result/TagPill";
 import Link from "next/link";
 
@@ -59,12 +63,21 @@ export default function ResultPageView({
   // 이름 상세로 가는 경로. 결제 직후 흐름과 마이페이지 재열람 흐름의 URL이 다르므로
   // 목록을 공유하되 링크 베이스만 주입받는다.
   detailBasePath = `/upgrade/${requestId}/result`,
+  // 공유는 재열람 화면(마이페이지)에서만 연다. 결제 직후 화면은 결과 확인에
+  // 집중시키는 자리라 버튼을 늘리지 않는다.
+  shareEnabled = false,
+  // 살아 있는 공유 링크의 집계. 서버 컴포넌트가 세션 클라이언트로 읽어 넘긴다.
+  // null이면 공유 중이 아니라는 뜻이고, 그때만 공유 시작 버튼을 보여준다.
+  shareTally = null,
 }: {
   requestId: string;
   userId: string;
   detailBasePath?: string;
+  shareEnabled?: boolean;
+  shareTally?: ShareTally | null;
 }) {
   const [activeSort, setActiveSort] = useState<"추천도" | "가나다">("추천도");
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [names, setNames] = useState<ResultName[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
@@ -216,6 +229,13 @@ export default function ResultPageView({
     return arr;
   }, [names, activeSort]);
 
+  // 득표 1위 이름. 동점이면 집계 쪽에서 이미 하나로 정해져 온다.
+  // 표가 하나도 없으면 뱃지를 달지 않는다.
+  const topVotedId =
+    shareTally && (shareTally.ranking[0]?.voteCount ?? 0) > 0
+      ? shareTally.ranking[0].candidateId
+      : null;
+
   // 조회 실패 시 렌더 중 throw → 가장 가까운 error.tsx 경계가 잡는다.
   if (loadError) throw loadError;
 
@@ -305,6 +325,14 @@ export default function ResultPageView({
         </div>
       </div>
 
+      {/* ── 공유 집계 ── */}
+      {shareEnabled && shareTally && (
+        <ShareTallyCard
+          tally={shareTally}
+          onEditScope={() => setIsShareOpen(true)}
+        />
+      )}
+
       {/* ── 정렬 탭 + 필터 ── */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex gap-2">
@@ -339,6 +367,20 @@ export default function ResultPageView({
           필터
         </button> */}
       </div>
+
+      {/* ── 공유하기 ── */}
+      {/* 공유 중이면 집계 카드가 링크 재공유까지 맡는다. 시작 버튼을 함께
+          띄우면 같은 링크를 만드는 입구가 둘이 되어 헷갈린다. */}
+      {shareEnabled && !isLoading && names.length > 0 && !shareTally && (
+        <button
+          type="button"
+          onClick={() => setIsShareOpen(true)}
+          className="mb-3 w-full flex items-center justify-center gap-1.5 border border-primary bg-surface text-primary font-semibold text-caption min-[376px]:text-btn rounded-pill py-3"
+        >
+          <Users className="size-4 min-[376px]:size-[18px]" />
+          가족·친구에게 물어보기
+        </button>
+      )}
 
       {/* ── 좋아요 조회 실패 배너 ── */}
       {!isLoading && hasFavoritesError && (
@@ -390,6 +432,11 @@ export default function ResultPageView({
                     <span className="text-ink-muted truncate text-[12px] min-[376px]:text-caption">
                       {item.hanja}
                     </span>
+                    {item.id === topVotedId && (
+                      <span className="shrink-0 px-2 py-0.5 rounded-pill bg-primary text-white font-bold text-[10px] min-[376px]:text-[11px]">
+                        투표 1위
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 min-[376px]:gap-[6px] mb-[6px]">
                     <StarRating stars={item.stars} />
@@ -444,6 +491,20 @@ export default function ResultPageView({
             </div>
           ))}
       </div>
+
+      {isShareOpen && (
+        <ShareSheet
+          requestId={requestId}
+          names={sortedNames.map((item) => ({
+            id: item.id,
+            name: item.name,
+            hanja: item.hanja,
+          }))}
+          activeCandidateIds={shareTally?.candidateIds ?? null}
+          isEditingScope={!!shareTally}
+          onClose={() => setIsShareOpen(false)}
+        />
+      )}
     </div>
   );
 }
