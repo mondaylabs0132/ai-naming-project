@@ -4,6 +4,7 @@ import Footer from "@/components/layout/footer";
 import ResultPageView from "@/components/result/ResultPageView";
 import { createClient } from "@/lib/supabase/server";
 import { loginRedirect } from "@/lib/auth/redirect";
+import { getShareTally } from "@/lib/share/owner";
 
 export default async function PremiumResultPage({
   params,
@@ -43,9 +44,17 @@ export default async function PremiumResultPage({
     redirect(`/upgrade/${resultId}/checkout`);
   }
 
+  // 공유 중이면 집계를 함께 넘긴다. 세션 클라이언트로 읽으므로 소유권은 RLS가 본다.
+  const shareTally = await getShareTally(supabase, resultId);
+
   return (
     <>
-      <ResultPageView requestId={resultId} userId={user.id} />
+      <ResultPageView
+        requestId={resultId}
+        userId={user.id}
+        shareEnabled
+        shareTally={shareTally}
+      />
       <Footer />
     </>
   );
