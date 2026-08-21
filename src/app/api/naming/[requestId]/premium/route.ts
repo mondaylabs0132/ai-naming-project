@@ -7,6 +7,7 @@ export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { failAndRefund } from "@/lib/payments/refund";
 import {
   ohangFromSurvey,
   fetchSurveyAndSurname,
@@ -22,6 +23,14 @@ import {
   MIN_DELIVERABLE_NAMES,
   type RichName,
 } from "../_lib";
+
+// 살아 있다는 신호를 찍는 주기.
+//
+// 리퍼가 "이 건이 멈췄는지"를 판단하는 근거는 generation_started_at 하나뿐이라,
+// 예전에는 정상 생성(1~2분)과 겹치지 않도록 정체 판정을 5분이나 뒤로 미뤄야 했다.
+// 생성 도중 주기적으로 이 값을 갱신하면 "진행 중"과 "죽음"이 구분되므로,
+// 리퍼는 90초만 조용해도 죽은 것으로 보고 곧장 회수에 들어갈 수 있다.
+const HEARTBEAT_INTERVAL_MS = 30_000;
 
 // 유료 생성 API 요청이 서버 내부 호출인지 검증할 때 읽는 커스텀 헤더 이름.
 const INTERNAL_JOB_SECRET_HEADER = "x-internal-job-secret";
@@ -41,6 +50,10 @@ export async function POST(
   // catch에서도 요청 id가 필요하므로 try 밖에서 푼다.
   const { requestId } = await params;
   const supabase = createAdminClient();
+
+  // finally에서 반드시 멈춰야 한다. 남겨 두면 요청이 끝난 뒤에도 하트비트가
+  // 계속 찍혀, 죽은 건을 리퍼가 영영 살아 있다고 오해한다.
+  let stopHeartbeat: (() => void) | null = null;
 
   try {
 
@@ -92,13 +105,21 @@ export async function POST(
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 
-    // 생성 실패 원인을 남긴다. 리퍼가 재시도를 소진해 FAILED로 확정할 때
-    // 이 값이 그대로 환불 사유가 되므로, 실패 지점마다 채워 둔다.
-    const markFailureReason = (reason: string) =>
-      supabase
-        .from("naming_requests")
-        .update({ generation_failure_reason: reason })
-        .eq("id", requestId);
+    // 최종 실패로 확정하고 즉시 환불한다.
+    //
+    // 여기까지 왔다는 것은 내부 재시도(AI 호출 3회 · 이름 수집 4라운드 ·
+    // 해설 누락분 개별 재시도)를 모두 쓰고도 안 됐다는 뜻이다. 예전에는 사유만
+    // 적어 두고 리퍼에 넘겼는데, 그러면 같은 실패를 5분 간격으로 세 번 더
+    // 반복하는 20분 동안 사용자는 진행률 게이지만 보고 있어야 했다.
+    // 판정을 내릴 수 있었다는 것 자체가 프로세스가 살아 있었다는 뜻이므로
+    // 이 자리에서 끝낸다. 상태가 FAILED로 바뀌는 순간 화면 폴링(2초)이
+    // 곧바로 실패·환불 안내로 넘어간다.
+    const finalizeFailure = async (reason: string) => {
+      stopHeartbeat?.();
+      stopHeartbeat = null;
+      const result = await failAndRefund(supabase, requestId, reason);
+      return result.ok ? result.refunded : false;
+    };
 
     // 유료 결과 생성 완료 시 status를 RESULT_READY로 전이 → 이메일 DB Webhook 발동.
     // 재시도 도중 GENERATING 유지 + 최종 FAILED 착지는 호출자(complete.ts)가 담당.
@@ -160,11 +181,38 @@ export async function POST(
       .eq("id", requestId)
       .in("status", ["PREMIUM_GENERATING", "FAILED"]);
 
+    // 여기서부터가 긴 구간(이름 수집 + 해설 생성)이다. 살아 있다는 신호를
+    // 주기적으로 찍어 리퍼가 정상 진행 중인 건을 회수하지 않게 한다.
+    // 상태 조건을 거는 이유: 실패가 확정된 뒤 늦게 도착한 하트비트가
+    // FAILED 행의 시각을 되살리면 안 되기 때문이다.
+    {
+      const timer = setInterval(() => {
+        void supabase
+          .from("naming_requests")
+          .update({ generation_started_at: new Date().toISOString() })
+          .eq("id", requestId)
+          .eq("status", "PREMIUM_GENERATING")
+          .then(({ error }) => {
+            if (error) {
+              console.warn(
+                `[premium] 하트비트 갱신 실패 requestId=${requestId}: ${error.message}`,
+              );
+            }
+          });
+      }, HEARTBEAT_INTERVAL_MS);
+      // 이 타이머 때문에 함수 인스턴스가 붙잡히지 않도록 한다.
+      timer.unref?.();
+      stopHeartbeat = () => clearInterval(timer);
+    }
+
     // ── 설문 + 성씨 로드 ───────────────────────────────────────
     const loaded = await fetchSurveyAndSurname(supabase, requestId);
     if (!loaded) {
+      // 결제는 됐는데 이름을 만들 근거가 없다. 몇 번을 다시 돌려도 결과가
+      // 같으므로 기다릴 이유가 없다.
+      const refunded = await finalizeFailure("설문 정보를 찾을 수 없습니다.");
       return NextResponse.json(
-        { error: "설문 정보를 찾을 수 없습니다." },
+        { error: "설문 정보를 찾을 수 없습니다.", refunded },
         { status: 404 },
       );
     }
@@ -236,14 +284,15 @@ export async function POST(
     // 몇 개 모자란 정도는 그대로 제공하되(결제 화면에 고지), 하한 미만이면
     // 상품이라 부를 수 없으므로 실패로 본다.
     //
-    // 여기서 곧장 FAILED로 확정하지 않는 이유: 후보 부족은 AI 무작위성 탓이라
-    // 재시도로 살아나는 경우가 많다. 리퍼가 재시도를 소진한 뒤 확정하게 둔다.
+    // 후보 부족은 AI 무작위성 탓이라 재시도로 살아나기도 한다. 다만 그 재시도는
+    // 바로 위 collectNames가 이미 4라운드나 돌린 뒤다. 같은 일을 5분 간격으로
+    // 세 번 더 반복하는 대신 여기서 끝내고 환불한다.
     if (totalNames < MIN_DELIVERABLE_NAMES) {
       const reason = `이름 부족: ${totalNames}개 (하한 ${MIN_DELIVERABLE_NAMES})`;
       console.error(`[premium] ${reason} requestId=${requestId}`);
-      await markFailureReason(reason);
+      const refunded = await finalizeFailure(reason);
       return NextResponse.json(
-        { error: "이름 생성에 실패했습니다." },
+        { error: "이름 생성에 실패했습니다.", refunded },
         { status: 500 },
       );
     }
@@ -292,8 +341,9 @@ export async function POST(
 
     if (insertErr) {
       console.error("[premium] name_candidates 삽입 실패:", insertErr.message);
-      await markFailureReason(`DB 저장 실패: ${insertErr.message}`);
-      return NextResponse.json({ error: "DB 저장 실패" }, { status: 500 });
+      // 제약 위반 같은 결정적 오류가 대부분이라 재시도해도 같은 자리에서 막힌다.
+      const refunded = await finalizeFailure(`DB 저장 실패: ${insertErr.message}`);
+      return NextResponse.json({ error: "DB 저장 실패", refunded }, { status: 500 });
     }
 
     await markResultReady();
@@ -307,18 +357,29 @@ export async function POST(
     });
   } catch (e) {
     console.error("[/api/naming/[requestId]/premium]", e);
-    // 상태는 PREMIUM_GENERATING에 그대로 둔다. 리퍼가 재시도하고,
-    // 소진되면 그때 FAILED로 확정하며 이 사유를 환불 기록에 싣는다.
-    await supabase
-      .from("naming_requests")
-      .update({
-        generation_failure_reason: e instanceof Error ? e.message : String(e),
-      })
-      .eq("id", requestId);
+    // 여기까지 예외가 올라왔다는 것은 callAI의 자체 재시도(3회 + 지수 백오프)로도
+    // 못 넘긴 오류라는 뜻이다. 확정하고 환불한다.
+    //
+    // 환불 자체가 실패하면(토스 장애 등) 상태만 FAILED로 남는데, 그 건은 리퍼의
+    // 환불 재시도 패스가 다시 주워 온다.
+    const reason = e instanceof Error ? e.message : String(e);
+    let refunded = false;
+    try {
+      const result = await failAndRefund(supabase, requestId, reason);
+      refunded = result.ok ? result.refunded : false;
+    } catch (refundError) {
+      // 환불 처리 자체가 던진 경우. 원래 오류를 삼키지 않도록 따로 남긴다.
+      console.error(
+        `[premium] 실패 확정 중 오류 requestId=${requestId}:`,
+        refundError,
+      );
+    }
 
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      { error: "서버 오류가 발생했습니다.", refunded },
       { status: 500 },
     );
+  } finally {
+    stopHeartbeat?.();
   }
 }
